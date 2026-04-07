@@ -314,17 +314,19 @@ ${candidateSummary}
         steps: candidate.steps || [],
       };
 
-      // 更新菜谱库中的推荐字段
-      await supabase
-        .from("recipes")
-        .update({
-          recommendation_reason: finalRecipe.recommendationReason,
-          match_percentage: finalRecipe.matchPercentage,
-          inventory_match: finalRecipe.inventoryMatch,
-          ingredients_have: finalRecipe.ingredients.have,
-          ingredients_missing: finalRecipe.ingredients.missing,
-        })
-        .eq("id", candidate.id);
+      // 只更新 AI 生成的菜谱，不要污染种子菜谱（种子菜谱是共享资源）
+      if (candidate.id?.startsWith("ai_")) {
+        await supabase
+          .from("recipes")
+          .update({
+            recommendation_reason: finalRecipe.recommendationReason,
+            match_percentage: finalRecipe.matchPercentage,
+            inventory_match: finalRecipe.inventoryMatch,
+            ingredients_have: finalRecipe.ingredients.have,
+            ingredients_missing: finalRecipe.ingredients.missing,
+          })
+          .eq("id", candidate.id);
+      }
 
       savedRecipes.push(finalRecipe);
     }
