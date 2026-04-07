@@ -7,421 +7,88 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const seedRecipes = [
-  // ═══ 家常菜 ═══
-  {
-    id: "seed_hongshaorou",
-    name: "红烧肉",
-    description: "经典家常菜，肥而不腻，入口即化",
-    tags: ["家常菜", "硬菜", "下饭菜"],
-    time: "60分钟",
-    difficulty: "中等",
-    calories: "520kcal",
-    steps: ["五花肉切块焯水", "锅中炒糖色", "放入五花肉翻炒上色", "加生抽老抽料酒", "加水没过肉，大火烧开转小火炖40分钟", "大火收汁"],
-  },
-  {
-    id: "seed_yuxiangrousi",
-    name: "鱼香肉丝",
-    description: "酸甜咸辣，下饭神器",
-    tags: ["家常菜", "川菜", "下饭菜"],
-    time: "20分钟",
-    difficulty: "简单",
-    calories: "320kcal",
-    steps: ["猪肉切丝加淀粉腌制", "调鱼香汁：醋、糖、酱油、豆瓣酱", "热油滑炒肉丝盛出", "爆香蒜末姜末泡椒", "加入胡萝卜丝木耳丝笋丝翻炒", "倒回肉丝，浇鱼香汁翻炒均匀"],
-  },
-  {
-    id: "seed_gongbaojiding",
-    name: "宫保鸡丁",
-    description: "鲜辣微甜，花生酥脆",
-    tags: ["家常菜", "川菜", "下饭菜"],
-    time: "20分钟",
-    difficulty: "简单",
-    calories: "350kcal",
-    steps: ["鸡胸肉切丁，加料酒淀粉腌制", "调宫保汁：醋、糖、酱油、淀粉", "热油爆香干辣椒花椒", "滑炒鸡丁至变色", "倒入宫保汁翻炒", "撒入花生米出锅"],
-  },
-  {
-    id: "seed_tangcupaigu",
-    name: "糖醋排骨",
-    description: "酸甜可口，色泽红亮",
-    tags: ["家常菜", "硬菜", "下饭菜"],
-    time: "40分钟",
-    difficulty: "中等",
-    calories: "450kcal",
-    steps: ["排骨焯水洗净", "热油炸至金黄", "锅留底油，加糖炒至冒泡", "加醋、生抽、番茄酱", "放入排骨翻炒裹汁", "大火收汁撒芝麻"],
-  },
-  {
-    id: "seed_huiguorou",
-    name: "回锅肉",
-    description: "川菜经典，肥肉不腻",
-    tags: ["家常菜", "川菜", "下饭菜", "硬菜"],
-    time: "25分钟",
-    difficulty: "简单",
-    calories: "400kcal",
-    steps: ["五花肉整块煮至断生", "切薄片备用", "热锅煎五花肉至微卷出油", "下豆瓣酱炒出红油", "加入蒜苗青椒翻炒", "调味出锅"],
-  },
-  {
-    id: "seed_mapo_doufu",
-    name: "麻婆豆腐",
-    description: "川味正宗，麻辣鲜香",
-    tags: ["家常菜", "川菜", "麻辣", "下饭菜"],
-    time: "15分钟",
-    difficulty: "简单",
-    calories: "280kcal",
-    steps: ["豆腐切块焯水", "热油炒碎猪肉末", "下豆瓣酱炒出红油", "加水烧开，放入豆腐", "小火炖5分钟", "勾芡撒花椒粉香葱"],
-  },
-  {
-    id: "seed_chaoniuhe",
-    name: "干炒牛河",
-    description: "粤式经典炒粉，镬气十足",
-    tags: ["家常菜", "快手菜", "主食"],
-    time: "15分钟",
-    difficulty: "中等",
-    calories: "380kcal",
-    steps: ["河粉抖散备用", "牛肉切片加生抽淀粉腌制", "大火热锅滑炒牛肉盛出", "放入河粉加老抽翻炒", "加入豆芽韭菜大火翻炒", "倒回牛肉拌匀出锅"],
-  },
-  // ═══ 快手菜 ═══
-  {
-    id: "seed_suanla_tudousi",
-    name: "酸辣土豆丝",
-    description: "开胃爽脆，五分钟搞定",
-    tags: ["家常菜", "快手菜", "凉菜", "下饭菜"],
-    time: "10分钟",
-    difficulty: "简单",
-    calories: "150kcal",
-    steps: ["土豆切细丝泡水去淀粉", "热油爆香干辣椒花椒", "大火快炒土豆丝", "加醋、盐调味", "翻炒1分钟即出锅"],
-  },
-  {
-    id: "seed_chaojidan",
-    name: "番茄炒蛋",
-    description: "国民家常菜，酸甜下饭",
-    tags: ["家常菜", "快手菜", "下饭菜"],
-    time: "10分钟",
-    difficulty: "简单",
-    calories: "220kcal",
-    steps: ["鸡蛋打散加盐", "番茄切块", "热油炒鸡蛋盛出", "炒番茄至出汁", "倒回鸡蛋翻炒", "加糖盐调味出锅"],
-  },
-  // ═══ 轻食/沙拉 ═══
-  {
-    id: "seed_caesar_salad",
-    name: "凯撒沙拉",
-    description: "经典西式沙拉，清爽健康",
-    tags: ["轻食", "沙拉", "低卡", "西餐"],
-    time: "10分钟",
-    difficulty: "简单",
-    calories: "180kcal",
-    steps: ["生菜洗净撕小片", "面包切丁烤至酥脆", "鸡胸肉煎熟切片", "混合生菜、面包丁、鸡肉", "淋凯撒酱拌匀", "撒帕玛森芝士碎"],
-  },
-  {
-    id: "seed_jixiong_shala",
-    name: "牛油果鸡胸肉沙拉",
-    description: "高蛋白低碳水，健身人群最爱",
-    tags: ["轻食", "沙拉", "低卡", "高蛋白", "减脂"],
-    time: "15分钟",
-    difficulty: "简单",
-    calories: "250kcal",
-    steps: ["鸡胸肉水煮至熟，撕成丝", "牛油果切块", "混合生菜、小番茄、玉米粒", "摆盘放上鸡丝和牛油果", "淋油醋汁"],
-  },
-  // ═══ 西餐 ═══
-  {
-    id: "seed_yishi_mianpasta",
-    name: "意式番茄肉酱面",
-    description: "经典意面，浓郁酱汁",
-    tags: ["西餐", "意面", "主食"],
-    time: "30分钟",
-    difficulty: "简单",
-    calories: "420kcal",
-    steps: ["意面按包装煮至al dente", "牛肉末炒散", "加入洋葱丁蒜末炒香", "倒入番茄酱和番茄丁", "小火熬15分钟", "拌入意面撒芝士粉"],
-  },
-  {
-    id: "seed_niupai",
-    name: "黑椒煎牛排",
-    description: "外焦里嫩，餐厅级口感",
-    tags: ["西餐", "牛排", "硬菜", "高蛋白"],
-    time: "20分钟",
-    difficulty: "中等",
-    calories: "380kcal",
-    steps: ["牛排提前半小时回温", "两面撒盐和黑胡椒", "热锅加橄榄油，大火煎1分钟", "翻面再煎1分钟", "转中火煎至理想熟度", "静置5分钟切片"],
-  },
-  // ═══ 日韩料理 ═══
-  {
-    id: "seed_rishi_karou",
-    name: "日式照烧鸡腿",
-    description: "甜咸适口，酱香浓郁",
-    tags: ["日料", "快手菜", "下饭菜"],
-    time: "20分钟",
-    difficulty: "简单",
-    calories: "340kcal",
-    steps: ["鸡腿去骨切花刀", "热锅煎鸡皮面至金黄", "翻面煎3分钟", "倒入照烧汁（酱油+味醂+糖+水）", "小火收汁至浓稠", "撒白芝麻出锅"],
-  },
-  {
-    id: "seed_hanguoshipin",
-    name: "韩式石锅拌饭",
-    description: "五彩缤纷，拌匀后香辣",
-    tags: ["韩餐", "主食", "下饭菜"],
-    time: "25分钟",
-    difficulty: "简单",
-    calories: "400kcal",
-    steps: ["准备各色蔬菜丝（胡萝卜、菠菜、豆芽）", "分别炒熟调味", "石锅刷香油，铺米饭", "摆上蔬菜和煎蛋", "加韩式辣酱", "大火烤至锅巴"],
-  },
-  {
-    id: "seed_shousi",
-    name: "三文鱼手卷寿司",
-    description: "清新日料，在家轻松做",
-    tags: ["日料", "寿司", "轻食"],
-    time: "20分钟",
-    difficulty: "简单",
-    calories: "280kcal",
-    steps: ["寿司饭加醋拌匀放凉", "海苔剪成正方形", "铺上寿司饭", "放三文鱼片、牛油果、黄瓜", "卷成锥形", "蘸酱油芥末食用"],
-  },
-  // ═══ 甜品 ═══
-  {
-    id: "seed_shuangpi_nai",
-    name: "双皮奶",
-    description: "嫩滑香甜的广式经典甜品",
-    tags: ["甜品", "小食", "糖水"],
-    time: "30分钟",
-    difficulty: "简单",
-    calories: "200kcal",
-    steps: ["全脂牛奶加热至起泡", "倒入碗中放凉结皮", "蛋清加糖搅拌均匀", "掀起奶皮倒出牛奶与蛋清混合", "过滤倒回碗中（奶皮浮起）", "上蒸锅蒸15分钟"],
-  },
-  {
-    id: "seed_mango_bingsha",
-    name: "芒果班戟",
-    description: "港式甜品店人气王",
-    tags: ["甜品", "小食", "下午茶"],
-    time: "25分钟",
-    difficulty: "简单",
-    calories: "250kcal",
-    steps: ["面粉+牛奶+蛋+糖搅拌成面糊", "平底锅摊薄饼放凉", "淡奶油打发", "饼皮铺上奶油和芒果块", "包成方形", "冷藏后食用"],
-  },
-  // ═══ 饮品 ═══
-  {
-    id: "seed_zhenzhu_naicha",
-    name: "手工珍珠奶茶",
-    description: "自制Q弹珍珠，健康无添加",
-    tags: ["饮品", "奶茶", "下午茶"],
-    time: "30分钟",
-    difficulty: "简单",
-    calories: "280kcal",
-    steps: ["木薯粉加红糖水揉成面团", "搓成小圆球", "水开下珍珠煮15分钟焖10分钟", "红茶泡浓后放凉", "杯中放珍珠加冰", "倒入茶和牛奶"],
-  },
-  {
-    id: "seed_xigua_binsha",
-    name: "西瓜冰沙",
-    description: "夏日清凉必备",
-    tags: ["饮品", "果汁", "清爽"],
-    time: "5分钟",
-    difficulty: "简单",
-    calories: "120kcal",
-    steps: ["西瓜切块去籽", "放入冰块", "倒入搅拌机打碎", "加少许蜂蜜调味", "倒入杯中即可"],
-  },
-  {
-    id: "seed_lemon_tea",
-    name: "百香果柠檬蜜",
-    description: "酸甜清爽的果茶",
-    tags: ["饮品", "茶饮", "果汁"],
-    time: "5分钟",
-    difficulty: "简单",
-    calories: "80kcal",
-    steps: ["柠檬切片", "百香果对半切取果肉", "杯中放入柠檬和百香果", "加蜂蜜和凉白开", "加冰搅拌均匀"],
-  },
-  // ═══ 鸡尾酒/微醺 ═══
-  {
-    id: "seed_mojito",
-    name: "莫吉托 Mojito",
-    description: "清爽薄荷鸡尾酒，夏日微醺首选",
-    tags: ["鸡尾酒", "调酒", "酒饮", "微醺", "饮品"],
-    time: "5分钟",
-    difficulty: "简单",
-    calories: "150kcal",
-    steps: ["薄荷叶和青柠角放入杯中", "加白砂糖轻捣", "倒入白朗姆酒45ml", "加满碎冰", "倒入苏打水", "插薄荷枝装饰"],
-  },
-  {
-    id: "seed_margarita",
-    name: "玛格丽特 Margarita",
-    description: "经典龙舌兰鸡尾酒，酸甜平衡",
-    tags: ["鸡尾酒", "调酒", "酒饮", "微醺", "饮品"],
-    time: "5分钟",
-    difficulty: "简单",
-    calories: "170kcal",
-    steps: ["杯口蘸盐做盐边", "摇壶加冰块", "倒入龙舌兰45ml+橙皮酒15ml+青柠汁30ml", "摇匀15秒", "过滤倒入杯中", "青柠片装饰"],
-  },
-  {
-    id: "seed_gin_tonic",
-    name: "金汤力 Gin & Tonic",
-    description: "最简单的经典长饮鸡尾酒",
-    tags: ["鸡尾酒", "调酒", "酒饮", "微醺", "饮品"],
-    time: "3分钟",
-    difficulty: "简单",
-    calories: "130kcal",
-    steps: ["高球杯装满冰块", "倒入金酒45ml", "沿杯壁缓倒汤力水至满", "轻搅两圈", "放入青柠角或黄瓜片"],
-  },
-  {
-    id: "seed_whisky_sour",
-    name: "威士忌酸 Whisky Sour",
-    description: "经典威士忌鸡尾酒，酸甜醇厚",
-    tags: ["鸡尾酒", "调酒", "酒饮", "微醺", "饮品"],
-    time: "5分钟",
-    difficulty: "简单",
-    calories: "160kcal",
-    steps: ["摇壶加冰", "倒入波本威士忌45ml", "加新鲜柠檬汁30ml", "加糖浆15ml", "大力摇匀15秒", "过滤倒入古典杯，柠檬皮装饰"],
-  },
-  {
-    id: "seed_sangria",
-    name: "桑格利亚水果酒",
-    description: "西班牙风情果酒，适合聚会",
-    tags: ["鸡尾酒", "调酒", "酒饮", "微醺", "饮品"],
-    time: "10分钟",
-    difficulty: "简单",
-    calories: "180kcal",
-    steps: ["橙子苹果柠檬切片", "放入大壶中", "倒入红葡萄酒一瓶", "加橙汁200ml和白兰地50ml", "加蜂蜜或糖适量", "冷藏2小时以上饮用更佳"],
-  },
-  // ═══ 汤羹 ═══
-  {
-    id: "seed_xihushi_dantang",
-    name: "番茄蛋花汤",
-    description: "清淡暖胃的经典汤品",
-    tags: ["汤羹", "家常菜", "快手菜", "清淡"],
-    time: "10分钟",
-    difficulty: "简单",
-    calories: "100kcal",
-    steps: ["番茄切块", "热油炒出汁", "加水烧开", "淋入打散的蛋液", "加盐调味", "撒香葱出锅"],
-  },
-  {
-    id: "seed_yumi_paigu_tang",
-    name: "玉米排骨汤",
-    description: "清甜滋补，老少皆宜",
-    tags: ["汤羹", "家常菜", "清淡"],
-    time: "60分钟",
-    difficulty: "简单",
-    calories: "220kcal",
-    steps: ["排骨焯水去血沫", "玉米切段胡萝卜切块", "砂锅加水烧开放入排骨", "小火炖40分钟", "加入玉米胡萝卜再炖20分钟", "加盐调味"],
-  },
-  // ═══ 早餐 ═══
-  {
-    id: "seed_jianbing",
-    name: "杂粮煎饼果子",
-    description: "天津早点之王",
-    tags: ["早餐", "快手菜", "主食"],
-    time: "10分钟",
-    difficulty: "简单",
-    calories: "350kcal",
-    steps: ["杂粮面糊摊成薄饼", "打上鸡蛋摊匀", "撒葱花香菜", "翻面放薄脆", "刷甜面酱辣酱", "卷起切半"],
-  },
-  {
-    id: "seed_xishipaobing",
-    name: "鸡蛋三明治",
-    description: "快速营养早餐",
-    tags: ["早餐", "快手菜", "轻食"],
-    time: "8分钟",
-    difficulty: "简单",
-    calories: "280kcal",
-    steps: ["鸡蛋煮熟切碎", "加蛋黄酱盐胡椒拌匀", "吐司烤至微焦", "铺上蛋液和生菜", "盖上另一片吐司", "对角切开"],
-  },
-  // ═══ 宵夜/小吃 ═══
-  {
-    id: "seed_chaofan",
-    name: "蛋炒饭",
-    description: "深夜食堂经典，简单美味",
-    tags: ["宵夜", "快手菜", "主食", "炒饭"],
-    time: "10分钟",
-    difficulty: "简单",
-    calories: "380kcal",
-    steps: ["隔夜饭打散", "鸡蛋打散备用", "热油倒入蛋液炒散", "加入米饭大火翻炒", "加盐酱油调味", "撒葱花出锅"],
-  },
-  {
-    id: "seed_suanla_fen",
-    name: "酸辣粉",
-    description: "重庆小吃，酸辣开胃",
-    tags: ["宵夜", "小吃", "麻辣"],
-    time: "15分钟",
-    difficulty: "简单",
-    calories: "320kcal",
-    steps: ["红薯粉泡软后煮熟", "调汁：醋+辣椒油+花椒粉+酱油+蒜泥", "碗中放调料", "倒入粉条和汤", "加花生碎和香菜", "撒葱花出锅"],
-  },
-  // ═══ 蒸菜/清淡 ═══
-  {
-    id: "seed_qingzheng_luyu",
-    name: "清蒸鲈鱼",
-    description: "鲜美嫩滑，原汁原味",
-    tags: ["蒸菜", "清淡", "家常菜"],
-    time: "20分钟",
-    difficulty: "简单",
-    calories: "180kcal",
-    steps: ["鲈鱼处理干净，划几刀", "鱼身铺姜片葱段", "上蒸锅大火蒸8分钟", "倒掉蒸鱼水", "淋蒸鱼豉油", "热油浇在鱼身和葱丝上"],
-  },
-  // ═══ 高蛋白 ═══
-  {
-    id: "seed_jixiong_rou",
-    name: "香煎鸡胸肉",
-    description: "高蛋白低脂，健身必备",
-    tags: ["高蛋白", "鸡胸肉", "减脂", "轻食"],
-    time: "15分钟",
-    difficulty: "简单",
-    calories: "200kcal",
-    steps: ["鸡胸肉用刀背拍松", "加盐黑椒橄榄油腌15分钟", "平底锅中火热油", "鸡胸肉煎3分钟", "翻面再煎3分钟", "切片装盘"],
-  },
-  // ═══ 面条 ═══
-  {
-    id: "seed_zhajangmian",
-    name: "老北京炸酱面",
-    description: "浓郁酱香，配菜丰富",
-    tags: ["面条", "主食", "家常菜"],
-    time: "25分钟",
-    difficulty: "简单",
-    calories: "400kcal",
-    steps: ["肉丁切好备用", "黄酱和甜面酱按2:1混合", "热油炒肉丁至出油", "加入酱料小火熬10分钟", "面条煮熟过凉水", "码上黄瓜丝豆芽等菜码浇酱"],
-  },
-  // ═══ 儿童餐 ═══
-  {
-    id: "seed_xiaren_zhengdan",
-    name: "虾仁蒸蛋",
-    description: "嫩滑营养，宝宝最爱",
-    tags: ["儿童餐", "辅食", "蒸菜", "清淡"],
-    time: "15分钟",
-    difficulty: "简单",
-    calories: "120kcal",
-    steps: ["鸡蛋打散加1.5倍温水", "加少许盐搅匀过滤", "覆保鲜膜扎小孔", "上蒸锅小火蒸8分钟", "放入虾仁再蒸3分钟", "淋酱油和香油"],
-  },
-  // ═══ 火锅 ═══
-  {
-    id: "seed_malatang",
-    name: "麻辣烫",
-    description: "一个人的小火锅",
-    tags: ["麻辣", "小吃", "宵夜", "川菜"],
-    time: "20分钟",
-    difficulty: "简单",
-    calories: "350kcal",
-    steps: ["火锅底料加水烧开", "先煮土豆藕片等硬菜", "再下午餐肉丸子", "最后放青菜和粉丝", "煮1-2分钟", "捞出蘸芝麻酱"],
-  },
-];
-
 async function run() {
-  console.log(`准备插入 ${seedRecipes.length} 道种子菜谱...`);
-
-  // 先删除旧种子（保留 ai_ 开头的）
+  // 1. 清除所有旧种子菜谱
   const { error: delError } = await supabase
     .from("recipes")
     .delete()
-    .not("id", "like", "ai_%");
+    .like("id", "seed_%");
 
   if (delError) {
     console.error("删除旧种子失败:", delError.message);
-  } else {
-    console.log("已清理旧种子菜谱");
+    return;
   }
+  console.log("✅ 已清除旧种子菜谱");
+
+  // 2. 插入用户的新菜谱
+  const recipes = [
+    {id:"seed_xihongshichaojidan",name:"西红柿炒鸡蛋",description:"酸甜鲜香，家常经典快手菜",tags:["家常菜","快手菜","下饭菜"],time:"10分钟",difficulty:"简单",calories:"180kcal",steps:["鸡蛋打散炒熟盛出","西红柿切块炒出汤汁","倒入鸡蛋加盐翻炒均匀"],ingredients_missing:[{name:"西红柿",amount:"2个"},{name:"鸡蛋",amount:"3个"},{name:"盐",amount:"少许"},{name:"食用油",amount:"适量"}]},
+    {id:"seed_mapodoufu",name:"麻婆豆腐",description:"麻辣鲜香，滑嫩入味超下饭",tags:["川菜","家常菜","下饭菜","快手菜","麻辣"],time:"15分钟",difficulty:"简单",calories:"220kcal",steps:["豆腐切块焯水","热油炒香豆瓣酱","加清水煮沸放入豆腐","勾芡撒花椒粉葱花"],ingredients_missing:[{name:"嫩豆腐",amount:"1盒"},{name:"豆瓣酱",amount:"1勺"},{name:"花椒粉",amount:"少许"},{name:"葱花",amount:"适量"},{name:"淀粉",amount:"1勺"}]},
+    {id:"seed_yuxiangrous",name:"鱼香肉丝",description:"鱼香浓郁，咸鲜酸辣超开胃",tags:["川菜","家常菜","下饭菜"],time:"20分钟",difficulty:"中等",calories:"260kcal",steps:["猪肉切丝腌制","木耳胡萝卜切丝","炒香泡椒姜蒜","放入食材加鱼香汁翻炒"],ingredients_missing:[{name:"猪里脊",amount:"200g"},{name:"木耳",amount:"50g"},{name:"胡萝卜",amount:"1根"},{name:"泡椒",amount:"3个"},{name:"鱼香调料",amount:"1包"}]},
+    {id:"seed_hongshaorou",name:"红烧肉",description:"肥而不腻，酱香浓郁硬菜",tags:["家常菜","硬菜","下饭菜"],time:"60分钟",difficulty:"中等",calories:"520kcal",steps:["五花肉切块焯水","炒出糖色","放入肉块翻炒","加调料小火炖50分钟"],ingredients_missing:[{name:"五花肉",amount:"500g"},{name:"冰糖",amount:"15g"},{name:"生抽",amount:"2勺"},{name:"姜片",amount:"3片"},{name:"料酒",amount:"2勺"}]},
+    {id:"seed_suanlatudousi",name:"酸辣土豆丝",description:"酸辣爽脆，解腻下饭快手菜",tags:["家常菜","快手菜","下饭菜","凉菜"],time:"8分钟",difficulty:"简单",calories:"120kcal",steps:["土豆切丝泡水去淀粉","热油爆香干辣椒","放入土豆丝大火快炒","加醋盐调味"],ingredients_missing:[{name:"土豆",amount:"2个"},{name:"干辣椒",amount:"3个"},{name:"陈醋",amount:"1勺"},{name:"盐",amount:"少许"},{name:"食用油",amount:"适量"}]},
+    {id:"seed_gongbaojiding",name:"宫保鸡丁",description:"麻辣酥脆，花生鸡肉超入味",tags:["川菜","家常菜","下饭菜","快手菜"],time:"18分钟",difficulty:"中等",calories:"280kcal",steps:["鸡胸肉切丁腌制","炸花生备用","炒香干辣椒花椒","放入鸡丁加调料翻炒"],ingredients_missing:[{name:"鸡胸肉",amount:"250g"},{name:"花生",amount:"50g"},{name:"干辣椒",amount:"5个"},{name:"生抽",amount:"1勺"},{name:"淀粉",amount:"1勺"}]},
+    {id:"seed_huiguorou",name:"回锅肉",description:"咸香微辣，经典川味家常菜",tags:["川菜","家常菜","下饭菜"],time:"25分钟",difficulty:"中等",calories:"380kcal",steps:["五花肉煮熟切片","热油煸炒出油","加豆瓣酱青椒翻炒","调味出锅"],ingredients_missing:[{name:"五花肉",amount:"300g"},{name:"青椒",amount:"2个"},{name:"豆瓣酱",amount:"1勺"},{name:"蒜苗",amount:"3根"},{name:"生抽",amount:"1勺"}]},
+    {id:"seed_duojiaoyutou",name:"剁椒鱼头",description:"鲜辣过瘾，湘式招牌硬菜",tags:["湘菜","硬菜","下饭菜","麻辣"],time:"40分钟",difficulty:"中等",calories:"320kcal",steps:["鱼头处理干净铺剁椒","蒸锅上汽蒸30分钟","撒葱花淋热油"],ingredients_missing:[{name:"胖头鱼头",amount:"1个"},{name:"剁椒",amount:"100g"},{name:"姜片",amount:"适量"},{name:"葱花",amount:"适量"},{name:"料酒",amount:"2勺"}]},
+    {id:"seed_nongjiaxiaochao",name:"农家小炒肉",description:"香辣够味，湘味快手下饭菜",tags:["湘菜","家常菜","下饭菜","快手菜"],time:"12分钟",difficulty:"简单",calories:"290kcal",steps:["五花肉切片煸炒","加青椒小米辣翻炒","加盐生抽调味"],ingredients_missing:[{name:"五花肉",amount:"200g"},{name:"青椒",amount:"3个"},{name:"小米辣",amount:"2个"},{name:"生抽",amount:"1勺"},{name:"盐",amount:"少许"}]},
+    {id:"seed_lajiachaorou",name:"辣椒炒肉",description:"鲜香下饭，国民家常小炒",tags:["家常菜","快手菜","下饭菜"],time:"10分钟",difficulty:"简单",calories:"270kcal",steps:["猪肉切丝","辣椒切块","热油翻炒食材","加盐调味出锅"],ingredients_missing:[{name:"前腿肉",amount:"150g"},{name:"线椒",amount:"4个"},{name:"盐",amount:"少许"},{name:"食用油",amount:"适量"}]},
+    {id:"seed_qingzhengluyu",name:"清蒸鲈鱼",description:"鲜嫩无腥，清淡蒸菜高蛋白",tags:["家常菜","硬菜","蒸菜","清淡","高蛋白"],time:"20分钟",difficulty:"简单",calories:"160kcal",steps:["鲈鱼改刀腌制","铺姜片蒸15分钟","淋蒸鱼豉油撒葱花"],ingredients_missing:[{name:"鲈鱼",amount:"1条"},{name:"蒸鱼豉油",amount:"2勺"},{name:"姜片",amount:"5片"},{name:"葱花",amount:"适量"},{name:"料酒",amount:"1勺"}]},
+    {id:"seed_baizhuoxia",name:"白灼虾",description:"鲜甜弹牙，低脂快手高蛋白",tags:["家常菜","快手菜","清淡","高蛋白","低卡"],time:"8分钟",difficulty:"简单",calories:"90kcal",steps:["清水加姜片料酒煮沸","放入虾煮3分钟","蘸生抽食用"],ingredients_missing:[{name:"基围虾",amount:"300g"},{name:"姜片",amount:"3片"},{name:"生抽",amount:"2勺"},{name:"料酒",amount:"1勺"}]},
+    {id:"seed_suanrongxilanhua",name:"蒜蓉西兰花",description:"清淡爽口，低卡减脂轻食",tags:["家常菜","快手菜","轻食","低卡","减脂","清淡"],time:"10分钟",difficulty:"简单",calories:"70kcal",steps:["西兰花焯水","热油炒香蒜蓉","放入西兰花翻炒加盐"],ingredients_missing:[{name:"西兰花",amount:"300g"},{name:"大蒜",amount:"5瓣"},{name:"盐",amount:"少许"},{name:"食用油",amount:"适量"}]},
+    {id:"seed_xiangjianjixiong",name:"香煎鸡胸肉",description:"鲜嫩不柴，高蛋白减脂餐",tags:["轻食","高蛋白","减脂","快手菜","低卡"],time:"15分钟",difficulty:"简单",calories:"150kcal",steps:["鸡胸肉腌制10分钟","平底锅少油煎至两面金黄"],ingredients_missing:[{name:"鸡胸肉",amount:"200g"},{name:"黑胡椒",amount:"少许"},{name:"盐",amount:"少许"},{name:"橄榄油",amount:"少许"}]},
+    {id:"seed_shucaisala",name:"蔬菜沙拉",description:"清爽解腻，低卡减脂轻食",tags:["西餐","轻食","低卡","减脂","沙拉","下午茶"],time:"5分钟",difficulty:"简单",calories:"60kcal",steps:["各类蔬菜洗净切块","混合淋沙拉汁拌匀"],ingredients_missing:[{name:"生菜",amount:"1颗"},{name:"黄瓜",amount:"1根"},{name:"圣女果",amount:"6颗"},{name:"沙拉汁",amount:"2勺"}]},
+    {id:"seed_heijiaoniupai",name:"黑椒牛排",description:"肉质紧实，西式经典硬菜",tags:["西餐","硬菜","高蛋白"],time:"20分钟",difficulty:"中等",calories:"320kcal",steps:["牛排解冻腌制","平底锅煎至心仪熟度","淋黑椒酱"],ingredients_missing:[{name:"西冷牛排",amount:"200g"},{name:"黑胡椒酱",amount:"1勺"},{name:"海盐",amount:"少许"},{name:"黄油",amount:"10g"}]},
+    {id:"seed_jingdianyimian",name:"经典意面",description:"奶香浓郁，西式主食快手菜",tags:["西餐","意面","主食","快手菜"],time:"20分钟",difficulty:"简单",calories:"350kcal",steps:["意面煮10分钟捞出","炒香培根蒜末","加奶油意面酱拌匀"],ingredients_missing:[{name:"意面",amount:"100g"},{name:"培根",amount:"50g"},{name:"奶油意面酱",amount:"1勺"},{name:"大蒜",amount:"2瓣"}]},
+    {id:"seed_shousijuan",name:"寿司卷",description:"软糯鲜香，日式清淡小食",tags:["日料","主食","小食","寿司","清淡"],time:"25分钟",difficulty:"中等",calories:"220kcal",steps:["米饭铺海苔","放黄瓜火腿肉松","卷紧切段"],ingredients_missing:[{name:"海苔片",amount:"3片"},{name:"寿司米饭",amount:"200g"},{name:"黄瓜",amount:"1根"},{name:"火腿",amount:"1根"},{name:"肉松",amount:"30g"}]},
+    {id:"seed_hanshibanfan",name:"韩式拌饭",description:"荤素搭配，韩式下饭主食",tags:["韩餐","主食","下饭菜","快手菜"],time:"20分钟",difficulty:"简单",calories:"420kcal",steps:["米饭铺碗底","码放焯熟蔬菜煎蛋","淋韩式辣酱拌匀"],ingredients_missing:[{name:"大米",amount:"1杯"},{name:"韩式辣酱",amount:"1勺"},{name:"鸡蛋",amount:"1个"},{name:"豆芽",amount:"50g"},{name:"胡萝卜",amount:"50g"}]},
+    {id:"seed_lachaoniangao",name:"辣炒年糕",description:"软糯香辣，韩式宵夜小吃",tags:["韩餐","小吃","宵夜","麻辣","快手菜"],time:"12分钟",difficulty:"简单",calories:"280kcal",steps:["年糕焯水","炒香韩式辣酱","加年糕煮至浓稠"],ingredients_missing:[{name:"年糕条",amount:"200g"},{name:"韩式辣酱",amount:"1勺"},{name:"鱼饼",amount:"50g"},{name:"白糖",amount:"少许"}]},
+    {id:"seed_chaofan",name:"扬州炒饭",description:"粒粒分明，经典主食炒饭",tags:["主食","炒饭","快手菜","家常菜"],time:"15分钟",difficulty:"简单",calories:"380kcal",steps:["米饭打散","炒香火腿丁蔬菜","倒入米饭加盐翻炒"],ingredients_missing:[{name:"剩米饭",amount:"1碗"},{name:"火腿",amount:"50g"},{name:"玉米粒",amount:"30g"},{name:"鸡蛋",amount:"1个"},{name:"盐",amount:"少许"}]},
+    {id:"seed_youpomian",name:"油泼面",description:"香辣劲道，西北快手面条",tags:["主食","面条","快手菜","麻辣"],time:"10分钟",difficulty:"简单",calories:"360kcal",steps:["面条煮熟捞出","铺辣椒面蒜末葱花","淋热油加醋盐"],ingredients_missing:[{name:"鲜面条",amount:"150g"},{name:"辣椒面",amount:"1勺"},{name:"大蒜",amount:"3瓣"},{name:"陈醋",amount:"1勺"},{name:"食用油",amount:"适量"}]},
+    {id:"seed_xiaolongtang",name:"紫菜蛋花汤",description:"清淡鲜美，快手汤羹早餐",tags:["汤羹","早餐","快手菜","清淡"],time:"5分钟",difficulty:"简单",calories:"50kcal",steps:["清水煮沸","淋蛋液加紫菜","加盐葱花调味"],ingredients_missing:[{name:"紫菜",amount:"5g"},{name:"鸡蛋",amount:"1个"},{name:"盐",amount:"少许"},{name:"葱花",amount:"适量"}]},
+    {id:"seed_banliangan",name:"凉拌黄瓜",description:"清爽解腻，快手凉菜宵夜",tags:["凉菜","快手菜","宵夜","清淡"],time:"5分钟",difficulty:"简单",calories:"40kcal",steps:["黄瓜拍碎","加蒜末盐醋生抽拌匀"],ingredients_missing:[{name:"黄瓜",amount:"2根"},{name:"大蒜",amount:"3瓣"},{name:"生抽",amount:"1勺"},{name:"陈醋",amount:"1勺"},{name:"盐",amount:"少许"}]},
+    {id:"seed_naicha",name:"珍珠奶茶",description:"丝滑香甜，经典奶茶饮品",tags:["饮品","奶茶","下午茶","宵夜"],time:"15分钟",difficulty:"简单",calories:"320kcal",steps:["煮黑珍珠","泡红茶加牛奶","混合珍珠调味"],ingredients_missing:[{name:"红茶包",amount:"2个"},{name:"纯牛奶",amount:"250ml"},{name:"黑珍珠",amount:"50g"},{name:"白糖",amount:"适量"}]},
+    {id:"seed_guozhi",name:"鲜榨橙汁",description:"酸甜维C，健康果汁饮品",tags:["饮品","果汁","低卡","下午茶"],time:"5分钟",difficulty:"简单",calories:"80kcal",steps:["橙子去皮切块","榨汁机榨汁过滤"],ingredients_missing:[{name:"橙子",amount:"3个"},{name:"纯净水",amount:"少许"}]},
+    {id:"seed_moguo",name:"芒果慕斯蛋糕",description:"绵密香甜，下午茶甜品",tags:["甜品","蛋糕","下午茶"],time:"40分钟",difficulty:"中等",calories:"280kcal",steps:["饼干压碎铺底","芒果泥加奶油拌匀","冷藏定型"],ingredients_missing:[{name:"消化饼干",amount:"100g"},{name:"芒果",amount:"2个"},{name:"淡奶油",amount:"150ml"},{name:"吉利丁片",amount:"2片"}]},
+    {id:"seed_taohongshui",name:"银耳莲子糖水",description:"清甜润喉，中式甜品糖水",tags:["甜品","糖水","下午茶","清淡"],time:"60分钟",difficulty:"简单",calories:"150kcal",steps:["银耳泡发撕小朵","加莲子冰糖炖50分钟"],ingredients_missing:[{name:"银耳",amount:"1朵"},{name:"莲子",amount:"30g"},{name:"冰糖",amount:"适量"},{name:"红枣",amount:"5颗"}]},
+    {id:"seed_mojito",name:"莫吉托鸡尾酒",description:"清新微醺，夏日调酒酒饮",tags:["鸡尾酒","调酒","酒饮","微醺"],time:"5分钟",difficulty:"简单",calories:"120kcal",steps:["薄荷叶捣碎","加青柠汁朗姆酒","兑苏打水加冰"],ingredients_missing:[{name:"朗姆酒",amount:"30ml"},{name:"青柠",amount:"1个"},{name:"薄荷叶",amount:"5片"},{name:"苏打水",amount:"100ml"},{name:"冰块",amount:"适量"}]},
+    {id:"seed_zaocanzhou",name:"小米南瓜粥",description:"软糯养胃，清淡早餐辅食",tags:["早餐","辅食","清淡","儿童餐","快手菜"],time:"25分钟",difficulty:"简单",calories:"110kcal",steps:["小米淘洗","南瓜切块","加水煮至浓稠"],ingredients_missing:[{name:"小米",amount:"50g"},{name:"南瓜",amount:"100g"},{name:"清水",amount:"适量"}]},
+    {id:"seed_ertongjidanquan",name:"儿童鸡蛋卷",description:"松软可口，儿童餐辅食",tags:["儿童餐","辅食","早餐","快手菜"],time:"10分钟",difficulty:"简单",calories:"130kcal",steps:["鸡蛋加面粉搅匀","平底锅摊薄饼卷起切段"],ingredients_missing:[{name:"鸡蛋",amount:"2个"},{name:"低筋面粉",amount:"20g"},{name:"牛奶",amount:"30ml"},{name:"盐",amount:"少许"}]},
+    {id:"seed_qingzhengjidan",name:"蒸水蛋",description:"滑嫩鲜香，清淡蒸菜辅食",tags:["蒸菜","清淡","辅食","儿童餐","快手菜"],time:"12分钟",difficulty:"简单",calories:"90kcal",steps:["鸡蛋加温水搅匀","过筛蒸10分钟","淋生抽"],ingredients_missing:[{name:"鸡蛋",amount:"2个"},{name:"温水",amount:"150ml"},{name:"生抽",amount:"少许"},{name:"香油",amount:"几滴"}]},
+    {id:"seed_luzhoupaigu",name:"卤排骨",description:"酱香入味，家常硬菜下饭菜",tags:["家常菜","硬菜","下饭菜"],time:"50分钟",difficulty:"中等",calories:"360kcal",steps:["排骨焯水","放入卤料包炖40分钟","浸泡入味"],ingredients_missing:[{name:"排骨",amount:"500g"},{name:"卤料包",amount:"1包"},{name:"生抽",amount:"2勺"},{name:"冰糖",amount:"10g"}]},
+    {id:"seed_shuizhuroupian",name:"水煮肉片",description:"麻辣滚烫，川味硬菜下饭菜",tags:["川菜","硬菜","下饭菜","麻辣"],time:"30分钟",difficulty:"中等",calories:"340kcal",steps:["肉片腌制","蔬菜焯水铺底","煮肉片淋热油花椒"],ingredients_missing:[{name:"猪里脊",amount:"250g"},{name:"豆芽",amount:"100g"},{name:"干辣椒",amount:"10个"},{name:"花椒",amount:"1勺"},{name:"郫县豆瓣",amount:"1勺"}]},
+    {id:"seed_xiangguchaoyoucai",name:"香菇炒油菜",description:"清淡鲜香，家常低脂快手菜",tags:["家常菜","快手菜","清淡","低卡"],time:"8分钟",difficulty:"简单",calories:"80kcal",steps:["香菇切片","油菜洗净","热油翻炒加盐调味"],ingredients_missing:[{name:"油菜",amount:"300g"},{name:"干香菇",amount:"5朵"},{name:"盐",amount:"少许"},{name:"大蒜",amount:"2瓣"}]},
+    {id:"seed_jirouxiangsala",name:"鸡胸肉沙拉",description:"饱腹低脂，高蛋白减脂餐",tags:["轻食","沙拉","高蛋白","减脂","低卡"],time:"10分钟",difficulty:"简单",calories:"120kcal",steps:["鸡胸肉撕丝","蔬菜铺底","淋油醋汁拌匀"],ingredients_missing:[{name:"鸡胸肉",amount:"100g"},{name:"生菜",amount:"1颗"},{name:"紫甘蓝",amount:"30g"},{name:"油醋汁",amount:"1勺"}]},
+    {id:"seed_niupaiyimian",name:"牛排意面",description:"西式双拼，主食硬菜正餐",tags:["西餐","意面","主食","硬菜"],time:"25分钟",difficulty:"中等",calories:"450kcal",steps:["煎牛排备用","煮意面拌酱","摆盘搭配"],ingredients_missing:[{name:"牛排",amount:"150g"},{name:"意面",amount:"80g"},{name:"意面酱",amount:"1勺"},{name:"西兰花",amount:"30g"}]},
+    {id:"seed_shengwen",name:"三文鱼刺身",description:"鲜嫩肥美，日式高蛋白日料",tags:["日料","清淡","高蛋白","低卡"],time:"5分钟",difficulty:"简单",calories:"180kcal",steps:["三文鱼切片","搭配芥末酱油食用"],ingredients_missing:[{name:"三文鱼",amount:"100g"},{name:"芥末",amount:"少许"},{name:"刺身酱油",amount:"2勺"}]},
+    {id:"seed_bingfen",name:"红糖冰粉",description:"冰爽清甜，夏日甜品小吃",tags:["甜品","小吃","下午茶","宵夜"],time:"10分钟",difficulty:"简单",calories:"130kcal",steps:["冰粉粉冲调凝固","加红糖坚果配料"],ingredients_missing:[{name:"冰粉粉",amount:"10g"},{name:"红糖浆",amount:"2勺"},{name:"花生碎",amount:"少许"},{name:"葡萄干",amount:"少许"}]},
+    {id:"seed_guanyintang",name:"番茄排骨汤",description:"酸甜浓郁，家常汤羹硬菜",tags:["汤羹","家常菜","硬菜","清淡"],time:"50分钟",difficulty:"中等",calories:"220kcal",steps:["排骨焯水","番茄炒出沙","加水炖40分钟"],ingredients_missing:[{name:"排骨",amount:"400g"},{name:"西红柿",amount:"3个"},{name:"姜片",amount:"3片"},{name:"盐",amount:"少许"}]},
+    {id:"seed_banfendou",name:"凉拌粉丝",description:"酸辣开胃，快手凉菜宵夜",tags:["凉菜","快手菜","宵夜","下饭菜"],time:"8分钟",difficulty:"简单",calories:"160kcal",steps:["粉丝焯水","加调料蔬菜拌匀"],ingredients_missing:[{name:"粉丝",amount:"100g"},{name:"黄瓜丝",amount:"50g"},{name:"辣椒油",amount:"1勺"},{name:"醋",amount:"1勺"}]},
+    {id:"seed_zongzi",name:"鲜肉粽子",description:"咸香软糯，传统主食小吃",tags:["主食","小吃","家常菜"],time:"40分钟",difficulty:"中等",calories:"380kcal",steps:["糯米浸泡","包入鲜肉粽叶","水煮30分钟"],ingredients_missing:[{name:"糯米",amount:"200g"},{name:"五花肉",amount:"100g"},{name:"粽叶",amount:"适量"},{name:"生抽",amount:"1勺"}]},
+    {id:"seed_hongdouzhou",name:"红豆薏米粥",description:"祛湿养胃，清淡早餐糖水",tags:["早餐","糖水","清淡","快手菜"],time:"30分钟",difficulty:"简单",calories:"140kcal",steps:["红豆薏米浸泡","加水煮至软烂"],ingredients_missing:[{name:"红豆",amount:"50g"},{name:"薏米",amount:"30g"},{name:"冰糖",amount:"适量"}]},
+    {id:"seed_kaochanhua",name:"烤肠花菜",description:"焦香入味，宵夜小食快手菜",tags:["小食","宵夜","快手菜","家常菜"],time:"15分钟",difficulty:"简单",calories:"210kcal",steps:["花菜掰小朵","加烤肠调料烤制","翻炒出锅"],ingredients_missing:[{name:"花菜",amount:"300g"},{name:"脆皮烤肠",amount:"2根"},{name:"烧烤料",amount:"1勺"},{name:"食用油",amount:"适量"}]},
+    {id:"seed_qingzhenggouqi",name:"清蒸枸杞鸡肉",description:"滋补清淡，蒸菜高蛋白家常菜",tags:["蒸菜","家常菜","清淡","高蛋白"],time:"25分钟",difficulty:"简单",calories:"170kcal",steps:["鸡肉切块腌制","铺枸杞红枣蒸20分钟"],ingredients_missing:[{name:"鸡腿肉",amount:"200g"},{name:"枸杞",amount:"10g"},{name:"红枣",amount:"3颗"},{name:"姜片",amount:"2片"}]},
+    {id:"seed_niunanchaoqingjiao",name:"牛腩炒青椒",description:"鲜香劲道，硬菜下饭菜",tags:["家常菜","硬菜","下饭菜"],time:"35分钟",difficulty:"中等",calories:"330kcal",steps:["牛腩炖软","青椒切块翻炒","调味出锅"],ingredients_missing:[{name:"牛腩",amount:"300g"},{name:"青椒",amount:"3个"},{name:"生抽",amount:"1勺"},{name:"盐",amount:"少许"}]},
+    {id:"seed_guozhichaoyin",name:"水果茶",description:"果香清新，茶饮下午茶饮品",tags:["饮品","茶饮","果汁","下午茶"],time:"10分钟",difficulty:"简单",calories:"90kcal",steps:["泡绿茶放凉","加水果块蜂蜜调味"],ingredients_missing:[{name:"绿茶",amount:"5g"},{name:"西瓜",amount:"50g"},{name:"柠檬",amount:"2片"},{name:"蜂蜜",amount:"1勺"}]},
+    {id:"seed_xiaojidanbing",name:"鸡蛋小饼",description:"松软便携，儿童早餐小食",tags:["早餐","儿童餐","小食","快手菜"],time:"10分钟",difficulty:"简单",calories:"160kcal",steps:["鸡蛋面粉搅匀","平底锅煎成小饼"],ingredients_missing:[{name:"鸡蛋",amount:"1个"},{name:"面粉",amount:"30g"},{name:"葱花",amount:"少许"},{name:"盐",amount:"少许"}]},
+    {id:"seed_weixunweijiu",name:"微醺果味鸡尾酒",description:"果香微醺，低度调酒酒饮",tags:["鸡尾酒","调酒","酒饮","微醺"],time:"3分钟",difficulty:"简单",calories:"100kcal",steps:["果酒加气泡水","加水果冰块摇匀"],ingredients_missing:[{name:"蜜桃果酒",amount:"50ml"},{name:"气泡水",amount:"100ml"},{name:"草莓",amount:"2颗"},{name:"冰块",amount:"适量"}]},
+    {id:"seed_qingcaimian",name:"清汤青菜面",description:"清淡暖胃，早餐面条快手菜",tags:["主食","面条","早餐","清淡","快手菜"],time:"8分钟",difficulty:"简单",calories:"240kcal",steps:["面条煮熟","加青菜盐香油调味"],ingredients_missing:[{name:"挂面",amount:"100g"},{name:"小青菜",amount:"50g"},{name:"盐",amount:"少许"},{name:"香油",amount:"几滴"}]},
+  ];
 
   const { data, error } = await supabase
     .from("recipes")
-    .insert(seedRecipes)
+    .insert(recipes)
     .select("id, name");
 
   if (error) {
     console.error("插入失败:", error.message);
   } else {
-    console.log(`✅ 成功插入 ${data.length} 道种子菜谱：`);
+    console.log(`✅ 成功插入 ${data.length} 道种子菜谱`);
     data.forEach((r: any) => console.log(`  - ${r.name}`));
   }
+
+  // 统计
+  const { count } = await supabase.from("recipes").select("*", { count: "exact", head: true });
+  console.log(`\n数据库总计: ${count} 道菜谱`);
 }
 
 run();

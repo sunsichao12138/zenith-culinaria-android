@@ -157,9 +157,9 @@ router.post("/recommend", async (req: Request, res: Response) => {
       return { ...r, _score: tagScore + inventoryScore, _inventoryMatched: matchedCount };
     });
 
-    // 按分数排序，取前 15 个
+    // 按分数排序，取前 8 个（减少发送给AI的数据量，避免超时）
     candidates.sort((a: any, b: any) => b._score - a._score);
-    candidates = candidates.slice(0, 15);
+    candidates = candidates.slice(0, 8);
 
     console.log(`[AI] Stage 1: Filtered ${candidates.length} candidates from ${allRecipes?.length || 0} total recipes`);
     console.log(`[AI] Top candidates: ${candidates.slice(0, 5).map((c: any) => `${c.name}(score=${c._score},inv=${c._inventoryMatched})`).join(", ")}`);
@@ -231,25 +231,39 @@ ${candidateSummary}
 
     console.log(`[AI] Stage 2: Calling model ${modelId} to rank candidates`);
 
-    const response = await fetch(arkEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: modelId,
-        messages: [
-          {
-            role: "system",
-            content: "你是一个美食推荐助手。从候选菜品中选出最适合的3道，返回JSON数组。只输出JSON，不要任何额外文字。"
-          },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.5,
-        max_tokens: 1024,
-      }),
-    });
+    // 40秒超时，防止 Vercel 60s 限制
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 40000);
+
+    let response: any;
+    try {
+      response = await fetch(arkEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: modelId,
+          messages: [
+            {
+              role: "system",
+              content: "你是一个美食推荐助手。从候选菜品中选出最适合的3道，返回JSON数组。只输出JSON，不要任何额外文字。"
+            },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.5,
+          max_tokens: 1024,
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchErr: any) {
+      clearTimeout(timeout);
+      // AI 超时，使用本地排序结果
+      console.log(`[AI] Stage 2 timeout/error, falling back to local scoring`);
+      return localFallback(candidates, inventoryNames, res);
+    }
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const errBody = await response.text();
@@ -339,6 +353,40 @@ ${candidateSummary}
   }
 });
 
+// 本地排序兜底：不调用 AI，直接取分数最高的 3 道
+function localFallback(candidates: any[], inventoryNames: string[], res: Response) {
+  const top3 = candidates.slice(0, 3);
+  const results = top3.map((c: any) => {
+    const allIngs = [...(c.ingredients_have || []), ...(c.ingredients_missing || [])];
+    const realHave: any[] = [];
+    const realMissing: any[] = [];
+    for (const ing of allIngs) {
+      if (ing.name && inventoryNames.includes(ing.name)) {
+        realHave.push(ing);
+      } else {
+        realMissing.push(ing);
+      }
+    }
+    return {
+      id: c.id,
+      name: c.name,
+      description: c.description || "",
+      image: c.image || "",
+      tags: c.tags || [],
+      time: c.time || "",
+      difficulty: c.difficulty || "",
+      calories: c.calories || "",
+      recommendationReason: `匹配您的库存食材，评分${c._score}分`,
+      matchPercentage: Math.min(95, 60 + (c._inventoryMatched || 0) * 10),
+      inventoryMatch: realHave.length,
+      ingredients: { have: realHave, missing: realMissing },
+      steps: c.steps || [],
+    };
+  });
+  console.log(`[AI] Local fallback: returned ${results.length} recipes`);
+  res.json(results);
+}
+
 // ── 回退：候选不足时完整生成 ──
 async function fullGeneration(
   req: Request, res: Response,
@@ -398,6 +446,9 @@ ${ingredientList || "暂无食材"}
 
   console.log(`[AI] Full generation mode with model: ${modelId}`);
 
+  const fgController = new AbortController();
+  const fgTimeout = setTimeout(() => fgController.abort(), 45000);
+
   const response = await fetch(arkEndpoint, {
     method: "POST",
     headers: {
@@ -414,9 +465,11 @@ ${ingredientList || "暂无食材"}
         { role: "user", content: prompt },
       ],
       temperature: 0.7,
-      max_tokens: 4096,
+      max_tokens: 2048,
     }),
+    signal: fgController.signal,
   });
+  clearTimeout(fgTimeout);
 
   if (!response.ok) {
     const errBody = await response.text();
