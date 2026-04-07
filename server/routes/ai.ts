@@ -279,6 +279,21 @@ ${candidateSummary}
       const candidate = candidates[idx];
       if (!candidate) continue;
 
+      // 用当前用户的真实库存重新分类 have/missing
+      const allIngredients = [
+        ...(sel.ingredientsHave || candidate.ingredients_have || []),
+        ...(sel.ingredientsMissing || candidate.ingredients_missing || []),
+      ];
+      const realHave: any[] = [];
+      const realMissing: any[] = [];
+      for (const ing of allIngredients) {
+        if (ing.name && inventoryNames.includes(ing.name)) {
+          realHave.push(ing);
+        } else {
+          realMissing.push(ing);
+        }
+      }
+
       const finalRecipe = {
         id: candidate.id,
         name: candidate.name,
@@ -290,10 +305,10 @@ ${candidateSummary}
         calories: candidate.calories || "",
         recommendationReason: sel.recommendationReason || candidate.recommendation_reason || "",
         matchPercentage: sel.matchPercentage || candidate.match_percentage || 80,
-        inventoryMatch: sel.inventoryMatch || candidate.inventory_match || 0,
+        inventoryMatch: realHave.length,
         ingredients: {
-          have: sel.ingredientsHave || candidate.ingredients_have || [],
-          missing: sel.ingredientsMissing || candidate.ingredients_missing || [],
+          have: realHave,
+          missing: realMissing,
         },
         steps: candidate.steps || [],
       };
@@ -415,9 +430,26 @@ ${ingredientList || "暂无食材"}
 
   const recipes = JSON.parse(jsonStr);
 
+  const inventoryNames = (ingredients || []).map((i: any) => i.name);
+
   const savedRecipes = [];
   for (const recipe of recipes) {
     const id = `ai_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+    // 用真实库存重新分类 have/missing
+    const allIngs = [
+      ...(recipe.ingredients?.have || []),
+      ...(recipe.ingredients?.missing || []),
+    ];
+    const realHave: any[] = [];
+    const realMissing: any[] = [];
+    for (const ing of allIngs) {
+      if (ing.name && inventoryNames.includes(ing.name)) {
+        realHave.push(ing);
+      } else {
+        realMissing.push(ing);
+      }
+    }
 
     const { data: dbData, error } = await supabase
       .from("recipes")
@@ -432,9 +464,9 @@ ${ingredientList || "暂无食材"}
         calories: recipe.calories || "",
         recommendation_reason: recipe.recommendationReason || "",
         match_percentage: recipe.matchPercentage || null,
-        inventory_match: recipe.inventoryMatch || null,
-        ingredients_have: recipe.ingredients?.have || [],
-        ingredients_missing: recipe.ingredients?.missing || [],
+        inventory_match: realHave.length,
+        ingredients_have: realHave,
+        ingredients_missing: realMissing,
         steps: recipe.steps || [],
       })
       .select()
@@ -460,7 +492,7 @@ ${ingredientList || "暂无食材"}
         steps: dbData.steps || [],
       });
     } else {
-      savedRecipes.push({ id, ...recipe });
+      savedRecipes.push({ id, ...recipe, ingredients: { have: realHave, missing: realMissing } });
     }
   }
 
