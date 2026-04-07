@@ -2,15 +2,15 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 
-import { authMiddleware } from "./middleware/auth";
-import authRouter from "./routes/auth";
-import ingredientsRouter from "./routes/ingredients";
-import recipesRouter from "./routes/recipes";
-import favoritesRouter from "./routes/favorites";
-import plansRouter from "./routes/plans";
-import historyRouter from "./routes/history";
-import profileRouter from "./routes/profile";
-import aiRouter from "./routes/ai";
+import { authMiddleware } from "./middleware/auth.js";
+import authRouter from "./routes/auth.js";
+import ingredientsRouter from "./routes/ingredients.js";
+import recipesRouter from "./routes/recipes.js";
+import favoritesRouter from "./routes/favorites.js";
+import plansRouter from "./routes/plans.js";
+import historyRouter from "./routes/history.js";
+import profileRouter from "./routes/profile.js";
+import aiRouter from "./routes/ai.js";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
