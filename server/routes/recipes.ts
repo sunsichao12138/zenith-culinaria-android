@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../supabase.js";
+import { isInInventory } from "../utils/ingredientMatch.js";
 
 const router = Router();
 
@@ -65,7 +66,7 @@ router.get("/:id", async (req: Request, res: Response) => {
         const realHave: any[] = [];
         const realMissing: any[] = [];
         for (const ing of allIngredients) {
-          if (ing.name && inventoryNames.includes(ing.name)) {
+          if (ing.name && isInInventory(ing.name, inventoryNames)) {
             realHave.push(ing);
           } else {
             realMissing.push(ing);

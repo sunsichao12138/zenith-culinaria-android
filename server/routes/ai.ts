@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../supabase.js";
+import { isInInventory, ingredientMatch } from "../utils/ingredientMatch.js";
 
 const router = Router();
 
@@ -147,8 +148,10 @@ router.post("/recommend", async (req: Request, res: Response) => {
       if (useInventory !== false) {
         const allNeeded = getRecipeAllIngredients(r);
         for (const name of allNeeded) {
-          if (inventoryNames.includes(name)) {
-            inventoryScore += (expiryWeights[name] || 1) * 3; // 库存匹配权重 ×3
+          if (isInInventory(name, inventoryNames)) {
+            // 找到匹配的库存食材的临期权重
+            const matchedInv = inventoryNames.find(inv => ingredientMatch(inv, name));
+            inventoryScore += (expiryWeights[matchedInv || name] || 1) * 3;
             matchedCount++;
           }
         }
@@ -249,7 +252,7 @@ ${candidateSummary}
         const realHave: any[] = [];
         const realMissing: any[] = [];
         for (const ing of allIngs) {
-          if (ing.name && inventoryNames.includes(ing.name)) {
+          if (ing.name && isInInventory(ing.name, inventoryNames)) {
             realHave.push(ing);
           } else {
             realMissing.push(ing);
@@ -344,7 +347,7 @@ ${candidateSummary}
       const realHave: any[] = [];
       const realMissing: any[] = [];
       for (const ing of allIngredients) {
-        if (ing.name && inventoryNames.includes(ing.name)) {
+        if (ing.name && isInInventory(ing.name, inventoryNames)) {
           realHave.push(ing);
         } else {
           realMissing.push(ing);
