@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, ArrowRight, Sparkles, Clock, Plus, Check, Trash2, Circle, CheckCircle2, Utensils, Camera, X, ChefHat } from "lucide-react";
+import { Calendar, ArrowRight, Sparkles, Clock, Plus, Check, Trash2, Refrigerator, PackageMinus, X, ChefHat, AlertTriangle, Info } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { usePlan } from "../context/PlanContext";
 import { cn } from "../lib/utils";
@@ -11,8 +11,7 @@ export default function Plan() {
   const navigate = useNavigate();
   const { plannedRecipes, removeFromPlan, addToPlan, isInPlan } = usePlan();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [showCompletionModal, setShowCompletionModal] = useState(false);
-  const [uploadedPhotos, setUploadedPhotos] = useState<Record<string, string>>({});
+  const [showConsumeModal, setShowConsumeModal] = useState(false);
   const [suggestedRecipes, setSuggestedRecipes] = useState<Recipe[]>([]);
 
   // 从 API 加载推荐菜谱
@@ -37,21 +36,33 @@ export default function Plan() {
     }
   };
 
-  const handleCookingComplete = () => {
-    setShowCompletionModal(true);
+  const handleStartCooking = () => {
+    setShowConsumeModal(true);
   };
 
-  const confirmCompletion = () => {
+  const confirmConsumption = () => {
+    // 实际业务中应在这里调用扣除食材接口，现在仅从计划中移除
     selectedIds.forEach(id => removeFromPlan(id));
     setSelectedIds([]);
-    setShowCompletionModal(false);
-    setUploadedPhotos({});
+    setShowConsumeModal(false);
   };
 
   const selectedRecipes = plannedRecipes.filter(r => selectedIds.includes(r.id));
-  const consumedIngredients = selectedRecipes.flatMap(r => 
-    [...r.ingredients.have, ...r.ingredients.missing]
-  );
+  const haveIngredients = selectedRecipes.flatMap(r => r.ingredients.have);
+  const missingIngredients = selectedRecipes.flatMap(r => r.ingredients.missing);
+  
+  // 简易聚合合并同名食材（展示用）
+  const aggregateIngredients = (ings: any[]) => {
+    const map = new Map<string, string>();
+    ings.forEach(i => {
+      // 若原先有值，可以累加处理；这里简单展示最新值
+      if (i.name) map.set(i.name, i.amount || "适量");
+    });
+    return Array.from(map.entries()).map(([name, amount]) => ({ name, amount }));
+  };
+
+  const aggregatedHave = aggregateIngredients(haveIngredients);
+  const aggregatedMissing = aggregateIngredients(missingIngredients);
 
   return (
     <div className="px-6 py-12 space-y-8 animate-in fade-in duration-500 pb-32">
@@ -213,7 +224,7 @@ export default function Plan() {
       {plannedRecipes.length > 0 && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-full max-w-md px-6 z-40">
           <button 
-            onClick={handleCookingComplete}
+            onClick={handleStartCooking}
             disabled={selectedIds.length === 0}
             className={cn(
               "w-full py-5 rounded-full font-bold text-lg shadow-2xl flex items-center justify-center gap-3 transition-all",
@@ -222,107 +233,109 @@ export default function Plan() {
                 : "bg-zinc-200 text-zinc-400 cursor-not-allowed"
             )}
           >
-            <Utensils size={20} />
+            <ChefHat size={20} />
             <span>开始烹饪{selectedIds.length > 0 ? ` (${selectedIds.length})` : ""}</span>
           </button>
         </div>
       )}
 
-      {/* Completion Modal */}
+      {/* Ingredient Consumption Modal */}
       <AnimatePresence>
-        {showCompletionModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+        {showConsumeModal && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center p-4 pb-8 sm:items-center">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowCompletionModal(false)}
+              onClick={() => setShowConsumeModal(false)}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              initial={{ scale: 0.95, opacity: 0, y: 30 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl space-y-8 overflow-hidden"
+              exit={{ scale: 0.95, opacity: 0, y: 30 }}
+              className="relative bg-white w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl flex flex-col max-h-[85vh]"
             >
               <button 
-                onClick={() => setShowCompletionModal(false)}
-                className="absolute top-6 right-6 p-2 hover:bg-zinc-100 rounded-full transition-colors"
+                onClick={() => setShowConsumeModal(false)}
+                className="absolute top-5 right-5 p-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-500 rounded-full transition-colors z-10"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
 
-              <div className="text-center space-y-4">
-                <div className="w-20 h-20 bg-[#F7FBF9] rounded-full flex items-center justify-center mx-auto border border-[#E8F3ED]">
-                  <ChefHat className="text-[#4CAF50]" size={40} />
+              <div className="flex-shrink-0 text-center space-y-4 pt-4 pb-6 border-b border-zinc-100">
+                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto border border-blue-100">
+                  <Refrigerator className="text-blue-500" size={32} />
                 </div>
                 <div className="space-y-1">
-                  <h2 className="text-2xl font-extrabold text-zinc-900 tracking-tight">用餐完成！</h2>
-                  <p className="text-zinc-500 text-sm">恭喜你又完成了一次美味的烹饪</p>
+                  <h2 className="text-xl font-extrabold text-zinc-900 tracking-tight">确认食材消耗</h2>
+                  <p className="text-zinc-500 text-xs px-4">以下食材将会从您的冰箱库存中自动扣除。如果您还没有买到，不用担心，系统允许负库存。</p>
                 </div>
               </div>
 
-              <div className="bg-zinc-50/50 rounded-3xl p-6 border border-zinc-100">
-                <h3 className="text-[10px] font-bold text-zinc-400 mb-4 tracking-widest uppercase flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                    <Check size={10} strokeWidth={4} />
+              <div className="flex-grow overflow-y-auto custom-scrollbar px-1 py-6 space-y-6">
+                {aggregatedHave.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-[11px] font-bold text-zinc-400 tracking-widest uppercase flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                      库中已有，将扣除
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {aggregatedHave.map((ing, i) => (
+                        <div key={i} className="flex justify-between items-center p-3 bg-zinc-50/80 rounded-2xl border border-zinc-100/50">
+                          <span className="text-sm font-bold text-zinc-700 truncate mr-2">{ing.name}</span>
+                          <span className="text-[10px] text-zinc-500 font-medium whitespace-nowrap bg-zinc-200/50 px-2 py-0.5 rounded-full">
+                            - {ing.amount}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  已消耗食材
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {consumedIngredients.slice(0, 12).map((ing, i) => (
-                    <span key={i} className="px-3 py-1.5 bg-white border border-zinc-100 rounded-full text-[11px] font-medium text-zinc-600 shadow-sm">
-                      {ing.name} <span className="text-zinc-400 ml-0.5">{ing.amount}</span>
-                    </span>
-                  ))}
-                  {consumedIngredients.length > 12 && (
-                    <span className="px-3 py-1.5 bg-white border border-zinc-100 rounded-full text-[11px] font-medium text-zinc-400 shadow-sm">
-                      +{consumedIngredients.length - 12}
-                    </span>
-                  )}
+                )}
+
+                {aggregatedMissing.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-[11px] font-bold text-zinc-400 tracking-widest uppercase flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-amber-500" />
+                      库中缺失，记为待购 / 负库存
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {aggregatedMissing.map((ing, i) => (
+                        <div key={i} className="flex justify-between items-center p-3 bg-amber-50/30 rounded-2xl border border-amber-100/50">
+                          <span className="text-sm font-bold text-amber-900/80 truncate mr-2">{ing.name}</span>
+                          <span className="text-[10px] text-amber-600 font-medium whitespace-nowrap bg-amber-100/50 px-2 py-0.5 rounded-full">
+                            需 {ing.amount}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {aggregatedHave.length === 0 && aggregatedMissing.length === 0 && (
+                  <div className="text-center py-8 text-zinc-400 text-sm">
+                    此菜品没有需要记录的食材消耗
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-shrink-0 pt-4 border-t border-zinc-100">
+                <button 
+                  onClick={confirmConsumption}
+                  className="w-full bg-black text-white py-4 rounded-full font-bold text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  <PackageMinus size={18} />
+                  确认消耗并开始
+                </button>
+                <div className="text-center mt-3">
+                  <button 
+                    onClick={() => setShowConsumeModal(false)}
+                    className="text-xs text-zinc-400 font-bold hover:text-zinc-600"
+                  >
+                    暂不开始
+                  </button>
                 </div>
               </div>
-
-              <div className="space-y-6 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
-                <h3 className="text-sm font-bold text-zinc-900 sticky top-0 bg-white py-1">上传成果</h3>
-                {selectedRecipes.map((recipe) => (
-                  <div key={recipe.id} className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
-                        <img src={recipe.image} alt={recipe.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      </div>
-                      <span className="text-xs font-bold text-zinc-700 truncate">{recipe.name}</span>
-                    </div>
-                    <div 
-                      className="aspect-video w-full rounded-3xl border-2 border-dashed border-zinc-200 bg-zinc-50 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-zinc-300 transition-colors overflow-hidden relative"
-                      onClick={() => {
-                        setUploadedPhotos(prev => ({
-                          ...prev,
-                          [recipe.id]: `https://picsum.photos/seed/${recipe.id}/800/600`
-                        }));
-                      }}
-                    >
-                      {uploadedPhotos[recipe.id] ? (
-                        <img src={uploadedPhotos[recipe.id]} className="w-full h-full object-cover" alt="Result" />
-                      ) : (
-                        <>
-                          <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center">
-                            <Camera className="text-zinc-400" size={20} />
-                          </div>
-                          <span className="text-[10px] font-bold text-zinc-400">点击拍照或上传</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button 
-                onClick={confirmCompletion}
-                className="w-full bg-black text-white py-5 rounded-full font-bold text-lg shadow-xl active:scale-95 transition-all"
-              >
-                确认并完成
-              </button>
             </motion.div>
           </div>
         )}
