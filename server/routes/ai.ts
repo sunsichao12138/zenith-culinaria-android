@@ -568,4 +568,112 @@ ${ingredientList || "暂无食材"}
   res.json(savedRecipes);
 }
 
+// POST /api/ai/recognize-image - 拍照识别食材
+router.post("/recognize-image", async (req: Request, res: Response) => {
+  try {
+    const apiKey = process.env.ARK_API_KEY;
+    const modelId = process.env.ARK_VISION_MODEL_ID || process.env.ARK_MODEL_ID || "doubao-1.5-pro-256k-250115";
+    const arkEndpoint = process.env.ARK_API_ENDPOINT || "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
+
+    if (!apiKey) {
+      res.status(500).json({ error: "ARK_API_KEY not configured" });
+      return;
+    }
+
+    const { image } = req.body;
+    if (!image) {
+      res.status(400).json({ error: "No image provided" });
+      return;
+    }
+
+    console.log(`[AI] Recognizing image, size: ${Math.round(image.length / 1024)}KB`);
+
+    const today = new Date().toISOString().split("T")[0];
+
+    const prompt = `请仔细观察这张照片，识别照片中的食材/食品。
+
+## 要求
+1. 识别照片中最主要的一种食材或食品
+2. 估算其数量和合适的单位
+3. 判断其分类
+4. 购买日期默认为今天：${today}
+5. 根据食材类型估算合理的保存天数
+
+## 分类选项（只能从以下选择）
+蔬菜、蛋奶肉类、主食干货、调料、水果、其他
+
+## 单位选项（只能从以下选择）
+克、千克、个、瓶、盒、袋
+
+## 输出格式（严格JSON，不要markdown标记，不要额外文字）
+{
+  "name": "食材名称",
+  "category": "分类",
+  "amount": "数量（纯数字）",
+  "unit": "单位",
+  "purchaseDate": "${today}",
+  "expiryDays": "保存天数（纯数字）"
+}`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
+    const response = await fetch(arkEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: modelId,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              {
+                type: "image_url",
+                image_url: { url: image },
+              },
+            ],
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 256,
+      }),
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      console.error(`[AI] Vision API error (${response.status}):`, errBody);
+      res.status(500).json({ error: `Vision API error: ${response.status}` });
+      return;
+    }
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || "";
+    console.log(`[AI] Vision response: ${text}`);
+
+    let jsonStr = text.trim();
+    if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    }
+
+    const result = JSON.parse(jsonStr);
+    console.log(`[AI] Recognized ingredient: ${result.name} (${result.category})`);
+
+    res.json(result);
+  } catch (err: any) {
+    if (err.name === "AbortError") {
+      console.error("[AI] Vision recognition timeout");
+      res.status(504).json({ error: "识别超时，请重试" });
+    } else {
+      console.error("[AI] Vision recognition error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  }
+});
+
 export default router;

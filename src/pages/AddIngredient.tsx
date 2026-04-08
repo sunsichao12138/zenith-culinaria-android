@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { X, Camera, Mic, Sparkles, Calendar, Tag, Hash, Ruler } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { X, Camera, Mic, Sparkles, Calendar, Tag, Hash, Ruler, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../lib/utils";
 import { Ingredient } from "../types";
@@ -23,8 +23,80 @@ export default function AddIngredient({ isOpen, onClose, onAdded }: AddIngredien
 
   const [processingSource, setProcessingSource] = useState<"camera" | "mic" | "auto" | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [recognizeError, setRecognizeError] = useState("");
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // 压缩图片并转为 base64
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxSize = 800;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxSize || h > maxSize) {
+            if (w > h) {
+              h = Math.round((h * maxSize) / w);
+              w = maxSize;
+            } else {
+              w = Math.round((w * maxSize) / h);
+              h = maxSize;
+            }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d")!;
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", 0.7));
+        };
+        img.onerror = reject;
+        img.src = reader.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // 拍照/选图后识别
+  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setProcessingSource("camera");
+    setRecognizeError("");
+
+    try {
+      const base64 = await compressImage(file);
+      const result = await api.post<any>("/ai/recognize-image", { image: base64 });
+
+      setFormData({
+        name: result.name || "",
+        category: result.category || "蔬菜",
+        amount: String(result.amount || ""),
+        unit: result.unit || "克",
+        purchaseDate: result.purchaseDate || new Date().toISOString().split('T')[0],
+        expiryDays: String(result.expiryDays || "7"),
+      });
+    } catch (err: any) {
+      console.error("Image recognition failed:", err);
+      setRecognizeError(err.message || "识别失败，请重试");
+    } finally {
+      setProcessingSource(null);
+      // 重置 input，允许再次选择同一文件
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+    }
+  };
 
   const handleAiFill = (source: "camera" | "mic" | "auto") => {
+    if (source === "camera") {
+      // 触发文件选择（拍照或相册）
+      cameraInputRef.current?.click();
+      return;
+    }
+
     const fillData = () => {
       setFormData({
         name: "新鲜西红柿",
@@ -91,12 +163,37 @@ export default function AddIngredient({ isOpen, onClose, onAdded }: AddIngredien
             onClick={onClose}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           />
+
+          {/* 隐藏的相机/相册输入 */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleCameraCapture}
+          />
+
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             className="relative bg-surface w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[85vh] flex flex-col"
           >
+            {/* 识别中遮罩 */}
+            <AnimatePresence>
+              {processingSource === "camera" && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 z-20 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4"
+                >
+                  <Loader2 size={40} className="animate-spin text-black" />
+                  <span className="text-sm font-bold text-zinc-600">AI 正在识别食材...</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* 固定头部 */}
             <header className="flex items-center justify-between px-8 pt-8 pb-4 flex-shrink-0">
               <h1 className="text-2xl font-bold">添加食材</h1>
@@ -113,7 +210,11 @@ export default function AddIngredient({ isOpen, onClose, onAdded }: AddIngredien
             <section className="grid grid-cols-2 gap-2">
               <button 
                 onClick={() => handleAiFill("camera")}
-                className="flex items-center justify-center gap-2 bg-white text-zinc-900 rounded-xl py-2.5 px-4 active:scale-95 transition-all border border-zinc-100 shadow-sm"
+                disabled={processingSource === "camera"}
+                className={cn(
+                  "flex items-center justify-center gap-2 bg-white text-zinc-900 rounded-xl py-2.5 px-4 active:scale-95 transition-all border border-zinc-100 shadow-sm",
+                  processingSource === "camera" && "opacity-50"
+                )}
               >
                 <Camera size={18} />
                 <span className="text-xs font-bold">拍照识别</span>
@@ -126,6 +227,13 @@ export default function AddIngredient({ isOpen, onClose, onAdded }: AddIngredien
                 <span className="text-xs font-bold">语音录入</span>
               </button>
             </section>
+
+            {/* 识别错误提示 */}
+            {recognizeError && (
+              <div className="text-xs text-red-500 font-medium bg-red-50 px-4 py-2 rounded-xl">
+                {recognizeError}
+              </div>
+            )}
 
             <form className="space-y-3">
               <div className="space-y-1">

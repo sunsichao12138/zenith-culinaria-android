@@ -19,7 +19,7 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "10mb" }));
 
 // Request logging
 app.use((req, _res, next) => {
