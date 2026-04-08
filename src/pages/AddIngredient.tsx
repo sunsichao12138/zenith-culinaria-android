@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { X, Camera, Mic, Sparkles, Calendar, Tag, Hash, Ruler, Loader2 } from "lucide-react";
+import { X, Camera, Mic, Sparkles, Calendar, Tag, Hash, Ruler, Loader2, Image as ImageIcon } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../lib/utils";
 import { Ingredient } from "../types";
@@ -24,6 +24,7 @@ export default function AddIngredient({ isOpen, onClose, onAdded }: AddIngredien
   const [processingSource, setProcessingSource] = useState<"camera" | "mic" | "auto" | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [recognizeError, setRecognizeError] = useState("");
+  const [showImageSourcePicker, setShowImageSourcePicker] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // 压缩base64图片
@@ -101,14 +102,15 @@ export default function AddIngredient({ isOpen, onClose, onAdded }: AddIngredien
     if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
 
-  const handleAiFill = async (source: "camera" | "mic" | "auto") => {
-    if (source === "camera") {
+  const handleAiFill = async (source: "camera_capture" | "camera_photos" | "mic" | "auto") => {
+    if (source === "camera_capture" || source === "camera_photos") {
+      setShowImageSourcePicker(false);
       try {
-        // 尝试使用 Capacitor Camera（原生拍照+相册选择）
+        // 使用 Capacitor Camera，明确指定 source 避免弹出原生未自定义样式的 Prompt
         const { Camera: CapCamera, CameraResultType, CameraSource } = await import("@capacitor/camera");
         const photo = await CapCamera.getPhoto({
           resultType: CameraResultType.DataUrl,
-          source: CameraSource.Prompt, // 弹出选择：拍照 or 相册
+          source: source === "camera_capture" ? CameraSource.Camera : CameraSource.Photos,
           quality: 80,
           width: 800,
           height: 800,
@@ -239,7 +241,8 @@ export default function AddIngredient({ isOpen, onClose, onAdded }: AddIngredien
             <div className="flex-1 overflow-y-auto px-8 space-y-4 no-scrollbar">
             <section className="grid grid-cols-2 gap-2">
               <button 
-                onClick={() => handleAiFill("camera")}
+                type="button"
+                onClick={() => setShowImageSourcePicker(true)}
                 disabled={processingSource === "camera"}
                 className={cn(
                   "flex items-center justify-center gap-2 bg-white text-zinc-900 rounded-xl py-2.5 px-4 active:scale-95 transition-all border border-zinc-100 shadow-sm",
@@ -386,6 +389,55 @@ export default function AddIngredient({ isOpen, onClose, onAdded }: AddIngredien
           </motion.div>
         </div>
       )}
+
+      {/* 自定义选择图片来源 Bottom Sheet */}
+      <AnimatePresence>
+        {showImageSourcePicker && (
+          <div className="fixed inset-0 z-[60] flex items-end justify-center">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowImageSourcePicker(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative w-full bg-surface pb-safe rounded-t-3xl overflow-hidden shadow-2xl pb-8"
+            >
+              <div className="w-12 h-1.5 bg-zinc-200 rounded-full mx-auto mt-4 mb-6" />
+              <div className="px-6 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => handleAiFill("camera_capture")}
+                  className="w-full flex items-center justify-center gap-3 bg-white border border-zinc-100 py-4 rounded-2xl font-bold text-zinc-900 active:bg-zinc-50 transition-colors"
+                >
+                  <Camera size={20} />
+                  拍摄照片
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAiFill("camera_photos")}
+                  className="w-full flex items-center justify-center gap-3 bg-white border border-zinc-100 py-4 rounded-2xl font-bold text-zinc-900 active:bg-zinc-50 transition-colors"
+                >
+                  <ImageIcon size={20} />
+                  从相册选择
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowImageSourcePicker(false)}
+                  className="w-full py-4 mt-2 font-bold text-zinc-400 active:text-zinc-600 transition-colors"
+                >
+                  取消
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   );
 }
