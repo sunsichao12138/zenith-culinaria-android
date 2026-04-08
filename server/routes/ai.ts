@@ -199,12 +199,21 @@ router.post("/recommend", async (req: Request, res: Response) => {
     const savedTastes = profile?.taste_preferences?.join("、") || "无";
     const restrictionStr = restrictions.join("、") || "无";
 
-    // 构建候选列表（精简格式）
+    // 构建候选列表（精简格式）——用模糊匹配重新分类 have/missing
     const candidateSummary = candidates.map((r: any, idx: number) => {
       const tags = (r.tags || []).join(",");
-      const haveStr = (r.ingredients_have || []).map((i: any) => i.name).join(",");
-      const missingStr = (r.ingredients_missing || []).map((i: any) => i.name).join(",");
-      return `${idx + 1}. ${r.name} | 标签:${tags} | 时间:${r.time} | 难度:${r.difficulty} | 需要食材:${haveStr} | 额外需要:${missingStr}`;
+      // 合并原始食材列表，用当前用户库存重新判断 have/missing
+      const allIngs = [...(r.ingredients_have || []), ...(r.ingredients_missing || [])];
+      const realHave: string[] = [];
+      const realMissing: string[] = [];
+      for (const ing of allIngs) {
+        if (ing.name && isInInventory(ing.name, inventoryNames)) {
+          realHave.push(ing.name);
+        } else if (ing.name) {
+          realMissing.push(ing.name);
+        }
+      }
+      return `${idx + 1}. ${r.name} | 标签:${tags} | 时间:${r.time} | 难度:${r.difficulty} | 库存已有:${realHave.join(",") || "无"} | 额外需要:${realMissing.join(",") || "无"} | 库存匹配${realHave.length}种`;
     }).join("\n");
 
     const prompt = `从以下${candidates.length}道候选菜品中，选出最适合用户的3道。
@@ -223,9 +232,10 @@ ${ingredientList || "暂无食材"}
 ${candidateSummary}
 
 ## 要求
-1. 从候选中选出最适合的3道，优先选择能用到库存食材的菜品
+1. 最重要：优先选择"库存匹配"数量最多的菜品，能用到更多库存食材的菜排在前面
 2. 临期食材优先使用
-3. 返回每道菜的序号、推荐理由、匹配度
+3. 注意"库存已有"字段表示用户冰箱里已经有的食材，匹配数越多越应该优先推荐
+4. 返回每道菜的序号、推荐理由、匹配度
 
 ## 输出格式（严格JSON，不要markdown标记）
 [
