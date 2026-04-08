@@ -26,52 +26,52 @@ export default function AddIngredient({ isOpen, onClose, onAdded }: AddIngredien
   const [recognizeError, setRecognizeError] = useState("");
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // 压缩图片并转为 base64
-  const compressImage = (file: File): Promise<string> => {
+  // 压缩base64图片
+  const compressBase64 = (dataUrl: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxSize = 800;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxSize || h > maxSize) {
+          if (w > h) {
+            h = Math.round((h * maxSize) / w);
+            w = maxSize;
+          } else {
+            w = Math.round((w * maxSize) / h);
+            h = maxSize;
+          }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.7));
+      };
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+  };
+
+  // 压缩File图片并转为 base64（兜底用）
+  const compressFile = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const maxSize = 800;
-          let w = img.width;
-          let h = img.height;
-          if (w > maxSize || h > maxSize) {
-            if (w > h) {
-              h = Math.round((h * maxSize) / w);
-              w = maxSize;
-            } else {
-              w = Math.round((w * maxSize) / h);
-              h = maxSize;
-            }
-          }
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext("2d")!;
-          ctx.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL("image/jpeg", 0.7));
-        };
-        img.onerror = reject;
-        img.src = reader.result as string;
-      };
+      reader.onload = () => compressBase64(reader.result as string).then(resolve).catch(reject);
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
   };
 
-  // 拍照/选图后识别
-  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // 发送图片到AI识别
+  const recognizeImage = async (base64: string) => {
     setProcessingSource("camera");
     setRecognizeError("");
-
     try {
-      const base64 = await compressImage(file);
-      const result = await api.post<any>("/ai/recognize-image", { image: base64 });
-
+      const compressed = await compressBase64(base64);
+      const result = await api.post<any>("/ai/recognize-image", { image: compressed });
       setFormData({
         name: result.name || "",
         category: result.category || "蔬菜",
@@ -85,15 +85,45 @@ export default function AddIngredient({ isOpen, onClose, onAdded }: AddIngredien
       setRecognizeError(err.message || "识别失败，请重试");
     } finally {
       setProcessingSource(null);
-      // 重置 input，允许再次选择同一文件
-      if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
   };
 
-  const handleAiFill = (source: "camera" | "mic" | "auto") => {
+  // 兜底：HTML file input 回调
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const base64 = await compressFile(file);
+      await recognizeImage(base64);
+    } catch (err: any) {
+      setRecognizeError("读取图片失败");
+    }
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+  };
+
+  const handleAiFill = async (source: "camera" | "mic" | "auto") => {
     if (source === "camera") {
-      // 触发文件选择（拍照或相册）
-      cameraInputRef.current?.click();
+      try {
+        // 尝试使用 Capacitor Camera（原生拍照+相册选择）
+        const { Camera: CapCamera, CameraResultType, CameraSource } = await import("@capacitor/camera");
+        const photo = await CapCamera.getPhoto({
+          resultType: CameraResultType.DataUrl,
+          source: CameraSource.Prompt, // 弹出选择：拍照 or 相册
+          quality: 80,
+          width: 800,
+          height: 800,
+        });
+        if (photo.dataUrl) {
+          await recognizeImage(photo.dataUrl);
+        }
+      } catch (err: any) {
+        // 如果 Capacitor 不可用或用户取消，回退到 HTML input
+        if (err.message?.includes("cancelled") || err.message?.includes("cancel")) {
+          return; // 用户取消，不做任何事
+        }
+        console.log("Capacitor Camera not available, falling back to file input");
+        cameraInputRef.current?.click();
+      }
       return;
     }
 
@@ -170,7 +200,7 @@ export default function AddIngredient({ isOpen, onClose, onAdded }: AddIngredien
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={handleCameraCapture}
+            onChange={handleFileInput}
           />
 
           <motion.div 
