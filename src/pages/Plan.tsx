@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, ArrowRight, Sparkles, Clock, Plus, Check, Trash2, Refrigerator, PackageMinus, X, ChefHat, AlertTriangle, Info } from "lucide-react";
+import { Calendar, ArrowRight, Sparkles, Clock, Plus, Check, Trash2, X, ChefHat, ShoppingBasket } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { usePlan } from "../context/PlanContext";
 import { cn } from "../lib/utils";
@@ -12,6 +12,7 @@ export default function Plan() {
   const { plannedRecipes, removeFromPlan, addToPlan, isInPlan } = usePlan();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showConsumeModal, setShowConsumeModal] = useState(false);
+  const [consumeList, setConsumeList] = useState<Array<{name: string, requiredStr: string, amount: number, unit: string, stock: string}>>([]);
   const [suggestedRecipes, setSuggestedRecipes] = useState<Recipe[]>([]);
 
   // 从 API 加载推荐菜谱
@@ -36,7 +37,47 @@ export default function Plan() {
     }
   };
 
+  const selectedRecipes = plannedRecipes.filter(r => selectedIds.includes(r.id));
+
   const handleStartCooking = () => {
+    // 构建消耗列表
+    const allIngredients = selectedRecipes.flatMap(r => [...r.ingredients.have, ...r.ingredients.missing]);
+    const map = new Map<string, any>();
+    
+    allIngredients.forEach(i => {
+      if (i.name) {
+        if (!map.has(i.name)) {
+          // 解析数字和单位
+          const match = (i.amount || "").match(/^([\d.]+)\s*(.*)$/);
+          let val = 1;
+          let unit = "";
+          if (match) {
+             val = parseFloat(match[1]) || 1;
+             unit = match[2] || "";
+          } else {
+             val = parseFloat(i.amount) || 1;
+             unit = i.amount?.replace(/[\d.\s]/g, '') || "份";
+          }
+          map.set(i.name, {
+            name: i.name,
+            requiredStr: i.amount || "适量",
+            amount: val,
+            unit: unit.trim(),
+            stock: "未知"
+          });
+        } else {
+          // 简易累加
+          const current = map.get(i.name);
+          const match = (i.amount || "").match(/^([\d.]+)\s*(.*)$/);
+          if (match) {
+             current.amount += (parseFloat(match[1]) || 0);
+             // 更新所需字符串显示
+             current.requiredStr = `${current.amount} ${current.unit}`;
+          }
+        }
+      }
+    });
+    setConsumeList(Array.from(map.values()));
     setShowConsumeModal(true);
   };
 
@@ -47,22 +88,7 @@ export default function Plan() {
     setShowConsumeModal(false);
   };
 
-  const selectedRecipes = plannedRecipes.filter(r => selectedIds.includes(r.id));
-  const haveIngredients = selectedRecipes.flatMap(r => r.ingredients.have);
-  const missingIngredients = selectedRecipes.flatMap(r => r.ingredients.missing);
-  
-  // 简易聚合合并同名食材（展示用）
-  const aggregateIngredients = (ings: any[]) => {
-    const map = new Map<string, string>();
-    ings.forEach(i => {
-      // 若原先有值，可以累加处理；这里简单展示最新值
-      if (i.name) map.set(i.name, i.amount || "适量");
-    });
-    return Array.from(map.entries()).map(([name, amount]) => ({ name, amount }));
-  };
 
-  const aggregatedHave = aggregateIngredients(haveIngredients);
-  const aggregatedMissing = aggregateIngredients(missingIngredients);
 
   return (
     <div className="px-6 py-12 space-y-8 animate-in fade-in duration-500 pb-32">
@@ -242,99 +268,89 @@ export default function Plan() {
       {/* Ingredient Consumption Modal */}
       <AnimatePresence>
         {showConsumeModal && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center p-4 pb-8 sm:items-center">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowConsumeModal(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             />
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 30 }}
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 30 }}
-              className="relative bg-white w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl flex flex-col max-h-[85vh]"
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-[90vw] md:max-w-md rounded-[2.5rem] p-7 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
             >
               <button 
                 onClick={() => setShowConsumeModal(false)}
-                className="absolute top-5 right-5 p-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-500 rounded-full transition-colors z-10"
+                className="absolute top-6 right-6 p-2 text-zinc-400 hover:text-zinc-600 rounded-full transition-colors z-10"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
 
-              <div className="flex-shrink-0 text-center space-y-4 pt-4 pb-6 border-b border-zinc-100">
-                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto border border-blue-100">
-                  <Refrigerator className="text-blue-500" size={32} />
+              <div className="flex items-start gap-4 mb-6 mt-2 pr-8">
+                <div className="w-14 h-14 bg-blue-50/50 text-blue-500 rounded-full flex items-center justify-center shrink-0 border border-blue-100/50">
+                  <ShoppingBasket size={24} />
                 </div>
-                <div className="space-y-1">
+                <div className="flex flex-col mt-1">
                   <h2 className="text-xl font-extrabold text-zinc-900 tracking-tight">确认食材消耗</h2>
-                  <p className="text-zinc-500 text-xs px-4">以下食材将会从您的冰箱库存中自动扣除。如果您还没有买到，不用担心，系统允许负库存。</p>
+                  <p className="text-zinc-400 text-[11px] mt-1.5 font-medium leading-relaxed">请核对本次烹饪实际消耗的食材总量</p>
                 </div>
               </div>
 
-              <div className="flex-grow overflow-y-auto custom-scrollbar px-1 py-6 space-y-6">
-                {aggregatedHave.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-[11px] font-bold text-zinc-400 tracking-widest uppercase flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                      库中已有，将扣除
-                    </h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      {aggregatedHave.map((ing, i) => (
-                        <div key={i} className="flex justify-between items-center p-3 bg-zinc-50/80 rounded-2xl border border-zinc-100/50">
-                          <span className="text-sm font-bold text-zinc-700 truncate mr-2">{ing.name}</span>
-                          <span className="text-[10px] text-zinc-500 font-medium whitespace-nowrap bg-zinc-200/50 px-2 py-0.5 rounded-full">
-                            - {ing.amount}
-                          </span>
+              <div className="flex-grow overflow-y-auto custom-scrollbar pt-2 pb-4">
+                <div className="border border-zinc-100 rounded-[28px] p-3 shadow-[inset_0_0_20px_rgba(0,0,0,0.01)] bg-zinc-50/20">
+                  {consumeList.map((item, index) => (
+                    <div key={index} className="flex flex-col p-4 bg-white rounded-[20px] border border-zinc-100/80 mb-3 last:mb-0 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="font-extrabold text-zinc-900 text-[15px]">{item.name}</span>
+                        <span className="text-[11px] text-zinc-400 font-bold">所需 {item.requiredStr}</span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <div className="text-[11px] text-zinc-400 font-bold flex-1 flex items-center">
+                          库存 <span className="text-zinc-700 ml-1.5 font-extrabold">{item.stock}</span>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {aggregatedMissing.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-[11px] font-bold text-zinc-400 tracking-widest uppercase flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-amber-500" />
-                      库中缺失，记为待购 / 负库存
-                    </h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      {aggregatedMissing.map((ing, i) => (
-                        <div key={i} className="flex justify-between items-center p-3 bg-amber-50/30 rounded-2xl border border-amber-100/50">
-                          <span className="text-sm font-bold text-amber-900/80 truncate mr-2">{ing.name}</span>
-                          <span className="text-[10px] text-amber-600 font-medium whitespace-nowrap bg-amber-100/50 px-2 py-0.5 rounded-full">
-                            需 {ing.amount}
-                          </span>
+                        <div className="text-zinc-200 mx-2"><ArrowRight size={14} /></div>
+                        <div className="flex items-center gap-3 flex-1 justify-end">
+                          <span className="text-[11px] text-zinc-400 font-bold">消耗</span>
+                          <div className="flex items-center h-[34px] rounded-full border border-zinc-200 bg-white px-3 flex-shrink-0 shadow-sm">
+                            <input 
+                              type="number" 
+                              value={item.amount}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                const newList = [...consumeList];
+                                newList[index].amount = val;
+                                setConsumeList(newList);
+                              }}
+                              className="w-10 text-center bg-transparent focus:outline-none font-bold text-zinc-900 text-[13px]"
+                            />
+                            {item.unit && <span className="ml-1 text-zinc-400 text-[10px] font-bold">{item.unit}</span>}
+                          </div>
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-
-                {aggregatedHave.length === 0 && aggregatedMissing.length === 0 && (
-                  <div className="text-center py-8 text-zinc-400 text-sm">
-                    此菜品没有需要记录的食材消耗
-                  </div>
-                )}
+                  ))}
+                  
+                  {consumeList.length === 0 && (
+                    <div className="text-center py-8 text-zinc-400 text-sm font-medium">
+                      没有可以消耗的食材
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="flex-shrink-0 pt-4 border-t border-zinc-100">
+              <div className="flex-shrink-0 mt-4">
+                <div className="text-center mb-6 mt-1">
+                  <p className="text-[11px] text-zinc-400/80 font-bold tracking-wide">如果有新购入食材请及时补充库存哦</p>
+                </div>
                 <button 
                   onClick={confirmConsumption}
-                  className="w-full bg-black text-white py-4 rounded-full font-bold text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2"
+                  className="w-full bg-black text-white py-[1.125rem] rounded-[24px] font-bold text-[15px] shadow-xl active:scale-95 transition-all"
                 >
-                  <PackageMinus size={18} />
-                  确认消耗并开始
+                  确认消耗并继续
                 </button>
-                <div className="text-center mt-3">
-                  <button 
-                    onClick={() => setShowConsumeModal(false)}
-                    className="text-xs text-zinc-400 font-bold hover:text-zinc-600"
-                  >
-                    暂不开始
-                  </button>
-                </div>
               </div>
             </motion.div>
           </div>
