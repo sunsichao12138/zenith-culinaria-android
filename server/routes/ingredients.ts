@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../supabase.js";
+import { calculateConsumption } from "../utils/unitConversion.js";
 
 const router = Router();
 
@@ -134,7 +135,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/ingredients/consume - 批量消耗食材（烹饪扣库存）
+// POST /api/ingredients/consume - 批量消耗食材（烹饪扣库存，支持智能单位换算）
 router.post("/consume", async (req: Request, res: Response) => {
   try {
     const { items } = req.body as {
@@ -156,14 +157,15 @@ router.post("/consume", async (req: Request, res: Response) => {
 
     const results: Array<{
       name: string;
-      consumed: number;
-      unit: string;
+      consumedDisplay: string;
       previousStock: string;
       newStock: string;
       matched: boolean;
+      skipped: boolean;
+      reason: string;
     }> = [];
 
-    // 2) 逐项匹配 & 扣减
+    // 2) 逐项匹配 & 智能扣减
     for (const item of items) {
       if (!item.name || item.amount <= 0) continue;
 
@@ -178,55 +180,58 @@ router.post("/consume", async (req: Request, res: Response) => {
       }
 
       if (matched) {
-        // 解析当前库存数字
-        const stockMatch = (matched.amount || "").match(/^([\d.]+)\s*(.*)$/);
-        let stockVal = 0;
-        let stockUnit = "";
-        if (stockMatch) {
-          stockVal = parseFloat(stockMatch[1]) || 0;
-          stockUnit = stockMatch[2] || "";
-        }
-
         const previousStock = matched.amount || "0";
-        const newVal = Math.max(0, stockVal - item.amount);
-        const newAmount = `${newVal}${stockUnit || item.unit}`;
+        // 将前端传来的 amount+unit 重组为字符串，交给 calculateConsumption
+        const consumeStr = `${item.amount}${item.unit}`;
+        const result = calculateConsumption(item.name, previousStock, consumeStr);
 
-        // 更新数据库
-        const { error: updateErr } = await supabase
-          .from("ingredients")
-          .update({ amount: newAmount, updated_at: new Date().toISOString() })
-          .eq("id", matched.id)
-          .eq("user_id", req.userId!);
+        if (!result.skipped) {
+          // 更新数据库
+          const { error: updateErr } = await supabase
+            .from("ingredients")
+            .update({ amount: result.newStockStr, updated_at: new Date().toISOString() })
+            .eq("id", matched.id)
+            .eq("user_id", req.userId!);
 
-        if (updateErr) {
-          console.error(`Failed to update ingredient ${matched.name}:`, updateErr.message);
+          if (updateErr) {
+            console.error(`Failed to update ingredient ${matched.name}:`, updateErr.message);
+          }
         }
 
-        // 如果扣减后为 0，可选择性删除（保留记录，不删）
         results.push({
           name: item.name,
-          consumed: item.amount,
-          unit: item.unit,
+          consumedDisplay: result.consumedDisplay,
           previousStock,
-          newStock: newAmount,
+          newStock: result.skipped ? previousStock : result.newStockStr,
           matched: true,
+          skipped: result.skipped,
+          reason: result.reason,
         });
+
+        console.log(
+          `[consume] ${item.name}: ${previousStock} → ${result.newStockStr} (${result.reason})`
+        );
       } else {
         // 库存中未找到该食材
         results.push({
           name: item.name,
-          consumed: item.amount,
-          unit: item.unit,
+          consumedDisplay: `${item.amount}${item.unit}`,
           previousStock: "无库存",
           newStock: "无库存",
           matched: false,
+          skipped: true,
+          reason: "库存中未找到该食材",
         });
       }
     }
 
+    const consumed = results.filter((r) => r.matched && !r.skipped).length;
+    const skipped = results.filter((r) => r.skipped).length;
+
     res.json({
       success: true,
-      consumed: results.filter((r) => r.matched).length,
+      consumed,
+      skipped,
       notFound: results.filter((r) => !r.matched).length,
       details: results,
     });
