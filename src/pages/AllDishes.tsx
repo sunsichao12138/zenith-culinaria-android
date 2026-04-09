@@ -151,7 +151,7 @@ export default function AllDishes() {
         </div>
         
         <div className="flex overflow-x-auto no-scrollbar gap-2 -mx-6 px-6">
-          {["全部", "家常菜", "快手菜", "下饭菜", "高蛋白", "低卡", "主食", "甜品", "西餐", "小食", "汤羹"].map((cat) => (
+          {["全部", "家常菜", "下饭菜", "快手菜", "清淡", "香辣", "减脂", "高蛋白", "低卡", "轻食", "硬菜", "主食", "汤羹", "甜品", "小食", "西餐", "川菜", "湘菜", "蒸菜", "日料"].map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
