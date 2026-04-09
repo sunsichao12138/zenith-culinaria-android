@@ -57,57 +57,54 @@ export default function Plan() {
       if (inv.name) stockMap.set(inv.name, inv.amount || "0");
     });
 
-    // 2) 构建消耗列表
+    // 2) 构建消耗列表 —— 与菜品食材保持完全一致
     const allIngredients = selectedRecipes.flatMap(r => [...r.ingredients.have, ...r.ingredients.missing]);
-    const map = new Map<string, any>();
+    const list: Array<{name: string, requiredStr: string, amount: number, unit: string, stock: string}> = [];
+    // 用于合并同名食材
+    const indexMap = new Map<string, number>();
     
     allIngredients.forEach(i => {
-      if (i.name) {
-        if (!map.has(i.name)) {
-          const match = (i.amount || "").match(/^([\d.]+)\s*(.*)$/);
-          let val = 1;
-          let unit = "";
-          if (match) {
-             val = parseFloat(match[1]) || 1;
-             unit = match[2] || "";
-          } else {
-             val = parseFloat(i.amount) || 1;
-             unit = i.amount?.replace(/[\d.\s]/g, '') || "份";
-          }
+      if (!i.name) return;
+      const rawAmount = i.amount || "适量";
+      
+      // 解析数值和单位（保留原始字符串用于显示）
+      const match = rawAmount.match(/^([\d.]+)\s*(.*)$/);
+      const val = match ? (parseFloat(match[1]) || 0) : 0;
+      const unit = match ? match[2].trim() : rawAmount;
 
-          // 查看真实库存
-          let realStock = "未知";
-          const exactMatch = stockMap.get(i.name);
-          if (exactMatch !== undefined) {
-            realStock = exactMatch;
-          } else {
-            // 模糊匹配
-            for (const [sn, sv] of stockMap) {
-              if (sn.includes(i.name) || i.name.includes(sn)) {
-                realStock = sv;
-                break;
-              }
-            }
-          }
-
-          map.set(i.name, {
-            name: i.name,
-            requiredStr: i.amount || "适量",
-            amount: val,
-            unit: unit.trim(),
-            stock: realStock,
-          });
-        } else {
-          const current = map.get(i.name);
-          const match = (i.amount || "").match(/^([\d.]+)\s*(.*)$/);
-          if (match) {
-             current.amount += (parseFloat(match[1]) || 0);
-             current.requiredStr = `${current.amount} ${current.unit}`;
+      // 查看真实库存（精确 + 模糊匹配）
+      let realStock = "无库存";
+      const exactMatch = stockMap.get(i.name);
+      if (exactMatch !== undefined) {
+        realStock = exactMatch;
+      } else {
+        for (const [sn, sv] of stockMap) {
+          if (sn.includes(i.name) || i.name.includes(sn)) {
+            realStock = sv;
+            break;
           }
         }
       }
+
+      // 同名同单位合并
+      const key = `${i.name}__${unit}`;
+      if (indexMap.has(key)) {
+        const idx = indexMap.get(key)!;
+        list[idx].amount += val;
+        list[idx].requiredStr = `${list[idx].amount}${list[idx].unit}`;
+      } else {
+        indexMap.set(key, list.length);
+        list.push({
+          name: i.name,
+          requiredStr: rawAmount,
+          amount: val || 1,
+          unit: unit,
+          stock: realStock,
+        });
+      }
     });
-    setConsumeList(Array.from(map.values()));
+
+    setConsumeList(list);
     setLoadingConsume(false);
     setShowConsumeModal(true);
   };
