@@ -48,7 +48,35 @@ export default function Fridge() {
       } else {
         // 正常更新数量
         const newAmountStr = `${newAmount} ${unit}`.trim();
-        api.patch(`/ingredients/${id}`, { amount: newAmountStr }).catch(err => console.error("Failed to udpate:", err));
+        api.patch(`/ingredients/${id}`, { amount: newAmountStr }).catch(err => console.error("Failed to update:", err));
+        return prev.map(i => i.id === id ? { ...i, amount: newAmountStr } : i);
+      }
+    });
+  };
+
+  const handleAmountChange = (id: string, value: string) => {
+    setIngredients(prev => prev.map(item => {
+      if (item.id === id) {
+        const unit = item.amount.replace(/[0-9.]/g, '').trim();
+        return { ...item, amount: `${value} ${unit}`.trim() };
+      }
+      return item;
+    }));
+  };
+
+  const handleAmountBlur = (id: string) => {
+    setIngredients(prev => {
+      const item = prev.find(i => i.id === id);
+      if (!item) return prev;
+      
+      const parsedVal = parseFloat(item.amount);
+      if (isNaN(parsedVal) || parsedVal <= 0) {
+        api.delete(`/ingredients/${id}`).catch(err => console.error(err));
+        return prev.filter(i => i.id !== id);
+      } else {
+        const unit = item.amount.replace(/[0-9.]/g, '').trim();
+        const newAmountStr = `${parsedVal} ${unit}`.trim();
+        api.patch(`/ingredients/${id}`, { amount: newAmountStr }).catch(err => console.error(err));
         return prev.map(i => i.id === id ? { ...i, amount: newAmountStr } : i);
       }
     });
@@ -171,14 +199,25 @@ export default function Fridge() {
                   <div className="flex items-center justify-end gap-3">
                     <button 
                       onClick={() => updateQuantity(item.id, -1)}
-                      className="w-8 h-8 rounded-full border border-zinc-200 flex items-center justify-center text-lg active:bg-zinc-50 transition-colors"
+                      className="w-8 h-8 rounded-full border border-zinc-200 flex flex-shrink-0 items-center justify-center text-lg active:bg-zinc-50 transition-colors"
                     >
                       <Minus size={16} />
                     </button>
-                    <span className="text-sm font-bold w-10 text-center">{numericAmount}</span>
+                    <input 
+                      type="number"
+                      value={item.amount.replace(/[^\d.]/g, '')}
+                      onChange={(e) => handleAmountChange(item.id, e.target.value)}
+                      onBlur={() => handleAmountBlur(item.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      className="w-12 text-center text-sm font-bold bg-transparent border-b border-transparent focus:border-zinc-300 focus:outline-none transition-colors"
+                    />
                     <button 
                       onClick={() => updateQuantity(item.id, 1)}
-                      className="w-8 h-8 rounded-full border border-zinc-200 flex items-center justify-center text-lg active:bg-zinc-50 transition-colors"
+                      className="w-8 h-8 rounded-full border border-zinc-200 flex flex-shrink-0 items-center justify-center text-lg active:bg-zinc-50 transition-colors"
                     >
                       <Plus size={16} />
                     </button>
