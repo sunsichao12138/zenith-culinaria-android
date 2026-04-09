@@ -19,27 +19,37 @@ router.get("/", async (req: Request, res: Response) => {
 
     let result = data || [];
 
-    // 临期过滤（expiry_days <= 3）
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // 1) 转换并计算动态剩余天数
+    let formatted = result.map((item: any) => {
+      const baseDate = new Date(item.updated_at || item.created_at);
+      const base = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+      const diffDays = Math.floor((today.getTime() - base.getTime()) / (1000 * 60 * 60 * 24));
+      const remainingDays = item.expiry_days - diffDays;
+
+      return {
+        id: item.id,
+        name: item.name,
+        amount: item.amount,
+        expiryDays: remainingDays, // 动态返回
+        category: item.category,
+        image: item.image,
+        suggestions: item.suggestions || [],
+      };
+    });
+
+    // 2) 临期过滤（剩余天数 <= 3 且 > 0 表示快过期，这里按需求也可以包含过期）
     if (category === "临期") {
-      result = result.filter((item: any) => item.expiry_days <= 3);
+      formatted = formatted.filter((item: any) => item.expiryDays <= 3);
     }
 
-    // 搜索过滤
+    // 3) 搜索过滤
     if (search && typeof search === "string") {
       const q = search.toLowerCase();
-      result = result.filter((item: any) => item.name.toLowerCase().includes(q));
+      formatted = formatted.filter((item: any) => item.name.toLowerCase().includes(q));
     }
-
-    // 转换字段名为前端格式
-    const formatted = result.map((item: any) => ({
-      id: item.id,
-      name: item.name,
-      amount: item.amount,
-      expiryDays: item.expiry_days,
-      category: item.category,
-      image: item.image,
-      suggestions: item.suggestions || [],
-    }));
 
     res.json(formatted);
   } catch (err: any) {
