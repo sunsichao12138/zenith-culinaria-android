@@ -942,7 +942,7 @@ router.get("/home-picks", async (req: Request, res: Response) => {
     // ═══════════════════════════════════
     // Slot 2：场景适配型
     // ═══════════════════════════════════
-    const hour = new Date().getHours();
+    const hour = req.query.hour ? parseInt(req.query.hour as string) : new Date().getHours();
     let timeTags: string[];
     let timeHint: string;
     if (hour >= 7 && hour < 10) {

@@ -48,7 +48,8 @@ export default function Home() {
   // 加载首页推荐
   const loadHomePicks = async () => {
     try {
-      const data = await api.get<HomePick[]>("/ai/home-picks");
+      const localHour = new Date().getHours();
+      const data = await api.get<HomePick[]>(`/ai/home-picks?hour=${localHour}`);
       if (data && data.length > 0) {
         setPicks(data);
         setHasData(true);
