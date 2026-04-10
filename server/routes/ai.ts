@@ -5,30 +5,29 @@ import { isInInventory, ingredientMatch } from "../utils/ingredientMatch.js";
 const router = Router();
 
 // ── 生成自然、有温度的推荐理由 ──
-function buildRecommendReason(dishName: string, description: string, haveNames: string[], tags: string[]): string {
+function buildRecommendReason(dishName: string, _description: string, haveNames: string[], tags: string[]): string {
   const pick = <T>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
   const ingStr = haveNames.slice(0, 3).join("、");
   const suffix = haveNames.length > 3 ? "等" : "";
-  const desc = description || "";
   const tag = (tags && tags.length > 0) ? tags[0] : "";
 
-  // 有匹配食材时的模板池
+  // 有匹配食材时的模板池（不引用 description，自成一句）
   const withIngs = [
-    `冰箱里的${ingStr}${suffix}正好派上用场，${desc || '简单几步就能搞定！'}`,
-    `家里有${ingStr}${suffix}？那这道${dishName}简直是为你量身定做的～`,
-    `${ingStr}${suffix}快用起来吧！${desc || `做一道${dishName}犒劳自己。`}`,
-    `你的${ingStr}${suffix}终于有了最佳归宿——${desc || `一道超赞的${dishName}！`}`,
-    `${ingStr}${suffix}别闲着了！${dishName}${desc ? '，' + desc : '，好吃到停不下来。'}`,
-    `正好冰箱有${ingStr}${suffix}，不如来一道${dishName}吧${desc ? '，' + desc : '！'}`,
+    `冰箱里的${ingStr}${suffix}正好派上用场，做一道${dishName}犒劳自己吧～`,
+    `家里有${ingStr}${suffix}？那这道${dishName}简直是为你量身定做的！`,
+    `${ingStr}${suffix}快要过期了？赶紧安排一道${dishName}消灭它们！`,
+    `${ingStr}${suffix}别闲着啦，搭配起来做${dishName}刚刚好～`,
+    `正好冰箱有${ingStr}${suffix}，来一道${dishName}，省事又好吃！`,
+    `${ingStr}${suffix}和${dishName}简直是天生一对，试试看！`,
   ];
 
-  // 无匹配食材时的模板池
+  // 无匹配食材时的模板池（不引用 description，自成一句）
   const noIngs = [
-    `${desc || dishName + '，'}${tag ? tag + '爱好者不能错过！' : '值得一试！'}`,
-    `今天就来点不一样的吧～${desc || dishName + '，绝对不会让你失望。'}`,
-    `${dishName}——${desc || '一道让人心情变好的菜。'}`,
-    `想换换口味？${desc || dishName + '了解一下'}～`,
-    `${tag ? '想吃' + tag + '的话，' : ''}${dishName}是个不错的选择${desc ? '，' + desc : '！'}`,
+    `今天就来点不一样的吧，${dishName}绝对不会让你失望～`,
+    `${dishName}——${tag ? tag + '爱好者' : '吃货'}不能错过的一道菜！`,
+    `想换换口味的话，${dishName}是个超棒的选择！`,
+    `${tag ? '想吃' + tag + '？' : ''}试试${dishName}吧，好吃到停不下来～`,
+    `给今天加点惊喜，来一道${dishName}怎么样？`,
   ];
 
   return haveNames.length > 0 ? pick(withIngs) : pick(noIngs);
