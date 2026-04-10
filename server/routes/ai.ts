@@ -790,5 +790,266 @@ router.post("/recognize-image", async (req: Request, res: Response) => {
     }
   }
 });
+// GET /api/ai/home-picks - 首页三菜推荐（纯规则引擎，秒开）
+router.get("/home-picks", async (req: Request, res: Response) => {
+  try {
+    const t0 = Date.now();
+
+    // ── 并行查询所有需要的数据 ──
+    const [
+      { data: ingredients },
+      { data: profile },
+      { data: allRecipes },
+      { data: historyData },
+      { data: favoritesData },
+    ] = await Promise.all([
+      supabase
+        .from("ingredients")
+        .select("name, amount, category, expiry_days")
+        .eq("user_id", req.userId!)
+        .order("expiry_days", { ascending: true }),
+      supabase
+        .from("user_profiles")
+        .select("restrictions, taste_preferences")
+        .eq("user_id", req.userId!)
+        .single(),
+      supabase
+        .from("recipes")
+        .select("*")
+        .not("id", "like", "ai_%")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("history")
+        .select("recipe_id, recipes(tags)")
+        .eq("user_id", req.userId!)
+        .order("viewed_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("favorites")
+        .select("recipe_id, recipes(tags)")
+        .eq("user_id", req.userId!)
+        .limit(50),
+    ]);
+
+    const t1 = Date.now();
+    console.log(`[HomePicks][Perf] DB queries: ${t1 - t0}ms`);
+
+    const recipes = allRecipes || [];
+    const inventoryNames = (ingredients || []).map((i: any) => i.name);
+    const restrictions = profile?.restrictions || [];
+    const tastePrefs = profile?.taste_preferences || [];
+
+    // 过滤忌口
+    const safeRecipes = recipes.filter((r: any) => {
+      if (restrictions.length === 0) return true;
+      const text = `${r.name || ""} ${r.description || ""}`;
+      return !restrictions.some((ban: string) => text.includes(ban));
+    });
+
+    // 格式化函数
+    const formatPick = (r: any, slot: string, hint: string) => {
+      const allIngs = [...(r.ingredients_have || []), ...(r.ingredients_missing || [])];
+      const realHave: any[] = [];
+      const realMissing: any[] = [];
+      for (const ing of allIngs) {
+        if (ing.name && isInInventory(ing.name, inventoryNames)) {
+          realHave.push(ing);
+        } else {
+          realMissing.push(ing);
+        }
+      }
+      return {
+        id: r.id,
+        name: r.name,
+        description: r.description || "",
+        image: r.image || "",
+        tags: r.tags || [],
+        time: r.time || "",
+        difficulty: r.difficulty || "",
+        calories: r.calories || "",
+        slot,
+        hint,
+        recommendationReason: hint,
+        matchPercentage: allIngs.length > 0 ? Math.round((realHave.length / allIngs.length) * 100) : 0,
+        inventoryMatch: realHave.length,
+        ingredients: { have: realHave, missing: realMissing },
+        steps: r.steps || [],
+      };
+    };
+
+    const usedIds = new Set<string>();
+    const picks: any[] = [];
+
+    // ═══════════════════════════════════
+    // Slot 1：临期消耗型
+    // ═══════════════════════════════════
+    let slot1 = null;
+    const urgentIngs = (ingredients || []).filter((i: any) => (i.expiry_days || 999) <= 14);
+
+    if (urgentIngs.length > 0) {
+      // 找临期最紧迫的食材
+      const mostUrgent = urgentIngs[0]; // 已按 expiry_days 升序排
+      // 从菜谱里找能用到这个食材的菜，按库存匹配度排序
+      let bestMatch: any = null;
+      let bestMatchCount = 0;
+      for (const r of safeRecipes) {
+        const allNeeded = [...(r.ingredients_have || []), ...(r.ingredients_missing || [])];
+        const names = allNeeded.map((i: any) => i.name).filter(Boolean);
+        // 必须用到临期食材
+        if (!names.some((n: string) => ingredientMatch(mostUrgent.name, n))) continue;
+        // 计算总库存匹配度
+        let matchCount = 0;
+        for (const n of names) {
+          if (isInInventory(n, inventoryNames)) matchCount++;
+        }
+        if (matchCount > bestMatchCount) {
+          bestMatchCount = matchCount;
+          bestMatch = r;
+        }
+      }
+      if (bestMatch) {
+        const days = mostUrgent.expiry_days;
+        const hint = days <= 1
+          ? `冰箱里的${mostUrgent.name}今天就要过期了`
+          : `冰箱里的${mostUrgent.name}还有 ${days} 天过期`;
+        slot1 = formatPick(bestMatch, "expiry", hint);
+        usedIds.add(bestMatch.id);
+      }
+    }
+
+    // 兜底：库存匹配度最高
+    if (!slot1) {
+      let best: any = null;
+      let bestCount = 0;
+      for (const r of safeRecipes) {
+        const allNeeded = [...(r.ingredients_have || []), ...(r.ingredients_missing || [])];
+        let matchCount = 0;
+        for (const ing of allNeeded) {
+          if (ing.name && isInInventory(ing.name, inventoryNames)) matchCount++;
+        }
+        if (matchCount > bestCount) {
+          bestCount = matchCount;
+          best = r;
+        }
+      }
+      if (best) {
+        slot1 = formatPick(best, "expiry", bestCount > 0 ? `可以用到冰箱里 ${bestCount} 种食材` : "为你精选的今日推荐");
+        usedIds.add(best.id);
+      }
+    }
+    if (slot1) picks.push(slot1);
+
+    // ═══════════════════════════════════
+    // Slot 2：场景适配型
+    // ═══════════════════════════════════
+    const hour = new Date().getHours();
+    let timeTags: string[];
+    let timeHint: string;
+    if (hour >= 7 && hour < 10) {
+      timeTags = ["早餐", "快手菜", "轻食"];
+      timeHint = "适合早餐";
+    } else if (hour >= 10 && hour < 14) {
+      timeTags = ["家常菜", "快手菜", "下饭菜", "硬菜"];
+      timeHint = "适合午餐";
+    } else if (hour >= 14 && hour < 17) {
+      timeTags = ["甜品", "小食", "轻食", "饮品", "茶饮"];
+      timeHint = "适合下午茶";
+    } else if (hour >= 17 && hour < 21) {
+      timeTags = ["家常菜", "硬菜", "汤羹", "下饭菜"];
+      timeHint = "适合晚餐";
+    } else {
+      timeTags = ["宵夜", "小吃", "面条", "炒饭", "快手菜"];
+      timeHint = "深夜食堂";
+    }
+
+    // 按标签匹配 + 口味偏好打分
+    const slot2Candidates = safeRecipes
+      .filter((r: any) => !usedIds.has(r.id))
+      .map((r: any) => {
+        let score = 0;
+        for (const tag of (r.tags || [])) {
+          if (timeTags.includes(tag)) score += 3;
+        }
+        // 口味偏好加分
+        for (const taste of tastePrefs) {
+          const tt = getTasteTags(taste);
+          for (const tag of (r.tags || [])) {
+            if (tt.boost.includes(tag)) score += 2;
+            if (tt.penalize.includes(tag)) score -= 3;
+          }
+        }
+        return { ...r, _score: score };
+      })
+      .filter((r: any) => r._score > 0)
+      .sort((a: any, b: any) => b._score - a._score);
+
+    if (slot2Candidates.length > 0) {
+      const chosen = slot2Candidates[0];
+      picks.push(formatPick(chosen, "timeslot", timeHint));
+      usedIds.add(chosen.id);
+    }
+
+    // ═══════════════════════════════════
+    // Slot 3：探索惊喜型
+    // ═══════════════════════════════════
+    // 收集用户已接触过的标签
+    const touchedTags = new Set<string>();
+    for (const h of (historyData || [])) {
+      const tags = (h as any).recipes?.tags;
+      if (tags) for (const t of tags) touchedTags.add(t);
+    }
+    for (const f of (favoritesData || [])) {
+      const tags = (f as any).recipes?.tags;
+      if (tags) for (const t of tags) touchedTags.add(t);
+    }
+
+    const touchedRecipeIds = new Set<string>();
+    for (const h of (historyData || [])) touchedRecipeIds.add((h as any).recipe_id);
+    for (const f of (favoritesData || [])) touchedRecipeIds.add((f as any).recipe_id);
+
+    // 找标签不在已接触集合中的菜品，但口味偏好仍要匹配
+    let slot3Candidates = safeRecipes
+      .filter((r: any) => !usedIds.has(r.id) && !touchedRecipeIds.has(r.id))
+      .map((r: any) => {
+        const tags = r.tags || [];
+        // 新鲜度：有多少标签是用户没接触过的
+        const newTagCount = tags.filter((t: string) => !touchedTags.has(t)).length;
+        // 口味兼容性
+        let tasteScore = 0;
+        for (const taste of tastePrefs) {
+          const tt = getTasteTags(taste);
+          for (const tag of tags) {
+            if (tt.boost.includes(tag)) tasteScore += 2;
+            if (tt.penalize.includes(tag)) tasteScore -= 3;
+          }
+        }
+        return { ...r, _newness: newTagCount, _tasteScore: tasteScore, _score: newTagCount * 2 + tasteScore };
+      })
+      .filter((r: any) => r._newness > 0 && r._tasteScore >= 0)
+      .sort((a: any, b: any) => b._score - a._score);
+
+    if (slot3Candidates.length > 0) {
+      picks.push(formatPick(slot3Candidates[0], "discovery", "新发现"));
+      usedIds.add(slot3Candidates[0].id);
+    } else {
+      // 降级：随机推荐一道用户没浏览过的菜
+      const unseen = safeRecipes.filter((r: any) => !usedIds.has(r.id) && !touchedRecipeIds.has(r.id));
+      if (unseen.length > 0) {
+        const random = unseen[Math.floor(Math.random() * unseen.length)];
+        picks.push(formatPick(random, "discovery", "新发现"));
+        usedIds.add(random.id);
+      }
+    }
+
+    const t2 = Date.now();
+    console.log(`[HomePicks][Perf] Logic: ${t2 - t1}ms, TOTAL: ${t2 - t0}ms`);
+    console.log(`[HomePicks] Returned ${picks.length} picks: ${picks.map(p => `${p.slot}:${p.name}`).join(", ")}`);
+
+    res.json(picks);
+  } catch (err: any) {
+    console.error("GET /api/ai/home-picks error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 export default router;

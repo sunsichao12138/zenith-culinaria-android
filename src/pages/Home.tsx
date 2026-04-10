@@ -1,12 +1,35 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, RefreshCw, Clock, Plus, Check, Heart } from "lucide-react";
+import { Sparkles, RefreshCw, Clock, Plus, Check, Heart, AlertTriangle, Coffee, Compass } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { usePlan } from "../context/PlanContext";
 import { useFavorites } from "../context/FavoritesContext";
 import { cn } from "../lib/utils";
 import { Recipe } from "../types";
 import { api } from "../api/client";
+
+interface HomePick extends Recipe {
+  slot: "expiry" | "timeslot" | "discovery";
+  hint: string;
+}
+
+const SLOT_CONFIG = {
+  expiry: {
+    label: "临期提醒",
+    icon: AlertTriangle,
+    color: "text-amber-600 bg-amber-50 border-amber-200",
+  },
+  timeslot: {
+    label: "此刻推荐",
+    icon: Coffee,
+    color: "text-blue-600 bg-blue-50 border-blue-200",
+  },
+  discovery: {
+    label: "新发现",
+    icon: Compass,
+    color: "text-purple-600 bg-purple-50 border-purple-200",
+  },
+};
 
 const ALL_TAGS = [
   "来点甜的", "喝点东西", "快速搞定", "吃饱一点", "清库存", "低负担", 
@@ -19,70 +42,51 @@ export default function Home() {
   const { addToPlan, removeFromPlan, isInPlan } = usePlan();
   const { toggleFavorite, isFavorite } = useFavorites();
   
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loadingRecipes, setLoadingRecipes] = useState(false);
-  const [hasRecommendation, setHasRecommendation] = useState(false);
+  const [picks, setPicks] = useState<HomePick[]>([]);
+  const [hasData, setHasData] = useState(false);
 
-  // 从 localStorage 读取上次 AI 推荐缓存
-  useEffect(() => {
+  // 加载首页推荐
+  const loadHomePicks = async () => {
     try {
-      const raw = localStorage.getItem("ai_recommend_cache");
+      const data = await api.get<HomePick[]>("/ai/home-picks");
+      if (data && data.length > 0) {
+        setPicks(data);
+        setHasData(true);
+        localStorage.setItem("home_picks_cache", JSON.stringify({ picks: data, ts: Date.now() }));
+      }
+    } catch (err) {
+      console.error("Failed to load home picks:", err);
+    }
+  };
+
+  // 初始化：先读缓存秒开，再异步刷新
+  useEffect(() => {
+    // 1. 先读缓存
+    try {
+      const raw = localStorage.getItem("home_picks_cache");
       if (raw) {
         const cached = JSON.parse(raw);
-        if (cached.recipes && cached.recipes.length > 0) {
-          setRecipes(cached.recipes.slice(0, 3));
-          setHasRecommendation(true);
+        if (cached.picks && cached.picks.length > 0) {
+          setPicks(cached.picks);
+          setHasData(true);
         }
       }
     } catch {}
+
+    // 2. 异步刷新（不阻塞首屏）
+    loadHomePicks();
   }, []);
 
-  // 当从 Filters 页返回时，监听 storage 变化刷新
+  // 页面可见时刷新
   useEffect(() => {
-    const handleStorage = () => {
-      try {
-        const raw = localStorage.getItem("ai_recommend_cache");
-        if (raw) {
-          const cached = JSON.parse(raw);
-          if (cached.recipes && cached.recipes.length > 0) {
-            setRecipes(cached.recipes.slice(0, 3));
-            setHasRecommendation(true);
-          }
-        } else {
-          setRecipes([]);
-          setHasRecommendation(false);
-        }
-      } catch {}
+    const handleVisible = () => {
+      if (document.visibilityState === "visible") {
+        loadHomePicks();
+      }
     };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    document.addEventListener("visibilitychange", handleVisible);
+    return () => document.removeEventListener("visibilitychange", handleVisible);
   }, []);
-
-  // 页面可见时重新检查缓存（从 Filters 返回）
-  useEffect(() => {
-    const handleFocus = () => {
-      try {
-        const raw = localStorage.getItem("ai_recommend_cache");
-        if (raw) {
-          const cached = JSON.parse(raw);
-          if (cached.recipes && cached.recipes.length > 0) {
-            setRecipes(cached.recipes.slice(0, 3));
-            setHasRecommendation(true);
-          }
-        }
-      } catch {}
-    };
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") handleFocus();
-    });
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, []);
-
-  // 取最多3个菜谱推荐
-  const recommendedRecipes = recipes;
 
   const [currentTags, setCurrentTags] = useState(() => {
     return [...ALL_TAGS].sort(() => 0.5 - Math.random()).slice(0, 6);
@@ -168,78 +172,88 @@ export default function Home() {
 
       <section className="space-y-4">
         <div className="flex justify-between items-center mb-1">
-          <h4 className="font-bold text-lg">菜单推荐</h4>
+          <h4 className="font-bold text-lg">为你精选</h4>
         </div>
 
-        {!hasRecommendation ? (
+        {!hasData ? (
           <div className="flex flex-col items-center py-10 text-center">
             <Sparkles size={32} className="text-zinc-300 mb-3" />
-            <p className="text-zinc-400 text-sm font-medium">还没有推荐记录</p>
-            <p className="text-zinc-300 text-xs mt-1">点击上方「开始推荐」获取 AI 推荐菜单</p>
+            <p className="text-zinc-400 text-sm font-medium">正在为你准备推荐...</p>
+            <p className="text-zinc-300 text-xs mt-1">添加冰箱食材后推荐更精准</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {recommendedRecipes.map((recipe) => (
-              <motion.article
-                key={recipe.id}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate(`/recipe/${recipe.id}`)}
-                className="p-3 bg-white border border-zinc-100 rounded-3xl shadow-sm flex items-center gap-4 cursor-pointer editorial-shadow"
-              >
-                <div className="w-20 h-20 flex-shrink-0 bg-zinc-50 rounded-2xl overflow-hidden">
-                  <img
-                    src={recipe.image}
-                    alt={recipe.name}
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-                <div className="flex-grow min-w-0">
-                  <div className="flex flex-col mb-1">
-                    <div className="flex items-center gap-2">
-                      <h5 className="text-base font-bold text-zinc-900 truncate">{recipe.name}</h5>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite(recipe);
-                        }}
-                        className={cn(
-                          "p-1 rounded-full transition-all active:scale-90",
-                          isFavorite(recipe.id) ? "text-red-500" : "text-zinc-300 hover:text-zinc-400"
-                        )}
-                      >
-                        <Heart size={14} fill={isFavorite(recipe.id) ? "currentColor" : "none"} />
-                      </button>
-                      <span className="px-2 py-0.5 bg-zinc-50 text-[10px] text-zinc-500 rounded-lg border border-zinc-100 whitespace-nowrap ml-auto">
-                        {recipe.tags[0]}
-                      </span>
-                    </div>
-                    <p className="text-xs text-zinc-500 mt-0.5 leading-tight">{recipe.description}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center text-xs text-zinc-400">
-                      <Clock size={14} className="mr-1" />
-                      <span>{recipe.time}</span>
-                    </div>
-                  </div>
-                </div>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (isInPlan(recipe.id)) {
-                      removeFromPlan(recipe.id);
-                    } else {
-                      addToPlan(recipe);
-                    }
-                  }}
-                  className={`flex-shrink-0 flex items-center justify-center rounded-full w-8 h-8 transition-all active:scale-90 ${
-                    isInPlan(recipe.id) ? "bg-zinc-100 text-zinc-400" : "bg-black text-white"
-                  }`}
+            {picks.map((pick, index) => {
+              const slotCfg = SLOT_CONFIG[pick.slot];
+              const SlotIcon = slotCfg.icon;
+              return (
+                <motion.article
+                  key={pick.id}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0, transition: { delay: index * 0.1 } }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => navigate(`/recipe/${pick.id}`)}
+                  className="p-3 bg-white border border-zinc-100 rounded-3xl shadow-sm flex items-center gap-4 cursor-pointer editorial-shadow"
                 >
-                  {isInPlan(recipe.id) ? <Check size={18} /> : <Plus size={18} />}
-                </button>
-              </motion.article>
-            ))}
+                  <div className="w-20 h-20 flex-shrink-0 bg-zinc-50 rounded-2xl overflow-hidden">
+                    <img
+                      src={pick.image}
+                      alt={pick.name}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <div className="flex-grow min-w-0">
+                    <div className="flex flex-col mb-1">
+                      <div className="flex items-center gap-2">
+                        <h5 className="text-base font-bold text-zinc-900 truncate">{pick.name}</h5>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(pick);
+                          }}
+                          className={cn(
+                            "p-1 rounded-full transition-all active:scale-90",
+                            isFavorite(pick.id) ? "text-red-500" : "text-zinc-300 hover:text-zinc-400"
+                          )}
+                        >
+                          <Heart size={14} fill={isFavorite(pick.id) ? "currentColor" : "none"} />
+                        </button>
+                        <span className={cn(
+                          "flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border whitespace-nowrap ml-auto",
+                          slotCfg.color
+                        )}>
+                          <SlotIcon size={10} />
+                          {slotCfg.label}
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-500 mt-0.5 leading-tight">{pick.hint}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center text-xs text-zinc-400">
+                        <Clock size={14} className="mr-1" />
+                        <span>{pick.time}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isInPlan(pick.id)) {
+                        removeFromPlan(pick.id);
+                      } else {
+                        addToPlan(pick);
+                      }
+                    }}
+                    className={`flex-shrink-0 flex items-center justify-center rounded-full w-8 h-8 transition-all active:scale-90 ${
+                      isInPlan(pick.id) ? "bg-zinc-100 text-zinc-400" : "bg-black text-white"
+                    }`}
+                  >
+                    {isInPlan(pick.id) ? <Check size={18} /> : <Plus size={18} />}
+                  </button>
+                </motion.article>
+              );
+            })}
           </div>
         )}
       </section>
