@@ -108,30 +108,33 @@ router.post("/recommend", async (req: Request, res: Response) => {
 
     const { peopleCount, prepTime, mealType, tastePreference, useInventory } = req.body;
 
+    const t0 = Date.now();
+
     // ════════════════════════════════════════
     // 第一阶段：本地规则快速筛候选
     // ════════════════════════════════════════
 
-    // 1) 获取冰箱食材
-    const { data: ingredients } = await supabase
-      .from("ingredients")
-      .select("name, amount, category, expiry_days")
-      .eq("user_id", req.userId!)
-      .order("expiry_days", { ascending: true });
+    // 并行查询：食材、偏好、菜谱库（互不依赖）
+    const [{ data: ingredients }, { data: profile }, { data: allRecipes }] = await Promise.all([
+      supabase
+        .from("ingredients")
+        .select("name, amount, category, expiry_days")
+        .eq("user_id", req.userId!)
+        .order("expiry_days", { ascending: true }),
+      supabase
+        .from("user_profiles")
+        .select("restrictions, taste_preferences")
+        .eq("user_id", req.userId!)
+        .single(),
+      supabase
+        .from("recipes")
+        .select("*")
+        .not("id", "like", "ai_%")
+        .order("created_at", { ascending: false }),
+    ]);
 
-    // 2) 获取用户偏好
-    const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("restrictions, taste_preferences")
-      .eq("user_id", req.userId!)
-      .single();
-
-    // 3) 从菜谱库筛选候选（排除旧 AI 生成菜谱，只用种子菜谱）
-    const { data: allRecipes } = await supabase
-      .from("recipes")
-      .select("*")
-      .not("id", "like", "ai_%")
-      .order("created_at", { ascending: false });
+    const t1 = Date.now();
+    console.log(`[AI][Perf] DB queries (ingredients + profile + recipes): ${t1 - t0}ms`);
 
     const sceneTags = getSceneTags(mealType || "正餐");
     const maxMinutes = getMaxMinutes(prepTime || "30分钟内");
@@ -234,6 +237,9 @@ router.post("/recommend", async (req: Request, res: Response) => {
     console.log(`[AI] Stage 1: Filtered ${candidates.length} candidates from ${allRecipes?.length || 0} total recipes`);
     console.log(`[AI] Top candidates: ${candidates.slice(0, 5).map((c: any) => `${c.name}(score=${c._score},inv=${c._inventoryMatched},taste=${c._tasteScore})`).join(", ")}`);
 
+    const t2 = Date.now();
+    console.log(`[AI][Perf] Stage 1 scoring + filtering: ${t2 - t1}ms`);
+
     // 如果候选不足 3 个，或者最佳候选的标签完全不匹配（库里没有相关菜谱），回退到完整生成模式
     const bestTagScore = candidates.length > 0
       ? (candidates[0].tags || []).reduce((s: number, t: string) => sceneTags.includes(t) ? s + 1 : s, 0)
@@ -292,20 +298,13 @@ ${candidateSummary}
 ## 要求
 1. 最重要：优先选择"库存匹配"数量最多的菜品，能用到更多库存食材的菜排在前面
 2. 临期食材优先使用
-3. 注意"库存已有"字段表示用户冰箱里已经有的食材，匹配数越多越应该优先推荐
-4. 选出5道菜，返回每道菜的序号、推荐理由、匹配度
-5. **推荐理由风格要求**：写得像朋友在聊天时随口推荐一样，语气自然、轻松、有温度。可以提到用到了冰箱里的哪些食材，也可以说说这道菜好吃在哪里，但不要用"完美利用""智能匹配"这类生硬词汇。长度控制在15-30个字。
+3. 选出5道菜，只返回序号和推荐理由
+4. **推荐理由风格**：像朋友随口推荐，自然、轻松、有温度。可以提食材或菜品特色，禁用"完美利用""智能匹配"等词汇。15-30字。
 
 ## 输出格式（严格JSON，不要markdown标记）
 [
-  {
-    "index": 1,
-    "recommendationReason": "推荐理由（像朋友推荐一样自然，提及食材或菜品特色）",
-    "matchPercentage": 85,
-    "inventoryMatch": 3,
-    "ingredientsHave": [{"name": "食材名", "amount": "用量"}],
-    "ingredientsMissing": [{"name": "食材名", "amount": "用量"}]
-  }
+  {"index": 1, "reason": "推荐理由"},
+  {"index": 3, "reason": "推荐理由"}
 ]`;
 
     const arkEndpoint = process.env.ARK_API_ENDPOINT || "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
@@ -372,7 +371,7 @@ ${candidateSummary}
             { role: "user", content: prompt },
           ],
           temperature: 0.5,
-          max_tokens: 512,
+          max_tokens: 256,
           thinking: { type: "disabled" },
         }),
       });
@@ -395,6 +394,9 @@ ${candidateSummary}
       console.warn(`[AI] Stage 2 failed (${aiErr.name === 'AbortError' ? 'timeout 40s' : aiErr.message}), falling back to Stage 1 results`);
     }
 
+    const t3 = Date.now();
+    console.log(`[AI][Perf] Stage 2 AI call: ${t3 - t2}ms`);
+
     // ── AI 失败时用 Stage 1 排序直接返回 ──
     if (!aiSelections || !Array.isArray(aiSelections) || aiSelections.length === 0) {
       const fallback = buildFallbackFromStage1();
@@ -412,10 +414,10 @@ ${candidateSummary}
       const candidate = candidates[idx];
       if (!candidate) continue;
 
-      // 用当前用户的真实库存重新分类 have/missing
+      // 用后端自己计算的库存匹配，不依赖 AI 返回
       const allIngredients = [
-        ...(sel.ingredientsHave || candidate.ingredients_have || []),
-        ...(sel.ingredientsMissing || candidate.ingredients_missing || []),
+        ...(candidate.ingredients_have || []),
+        ...(candidate.ingredients_missing || []),
       ];
       const realHave: any[] = [];
       const realMissing: any[] = [];
@@ -436,8 +438,8 @@ ${candidateSummary}
         time: candidate.time || "",
         difficulty: candidate.difficulty || "",
         calories: candidate.calories || "",
-        recommendationReason: sel.recommendationReason || candidate.recommendation_reason || "",
-        matchPercentage: sel.matchPercentage || candidate.match_percentage || 80,
+        recommendationReason: sel.reason || sel.recommendationReason || candidate.recommendation_reason || "",
+        matchPercentage: allIngredients.length > 0 ? Math.round((realHave.length / allIngredients.length) * 100) : 60,
         inventoryMatch: realHave.length,
         ingredients: {
           have: realHave,
@@ -500,6 +502,9 @@ ${candidateSummary}
     }
 
     console.log(`[AI] Successfully recommended ${savedRecipes.length} recipes`);
+    const t4 = Date.now();
+    console.log(`[AI][Perf] Result assembly: ${t4 - t3}ms`);
+    console.log(`[AI][Perf] ══ TOTAL: ${t4 - t0}ms ══`);
     res.json(savedRecipes);
   } catch (err: any) {
     console.error("POST /api/ai/recommend error:", err.message);
