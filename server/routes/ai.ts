@@ -4,6 +4,36 @@ import { isInInventory, ingredientMatch } from "../utils/ingredientMatch.js";
 
 const router = Router();
 
+// ── 生成自然、有温度的推荐理由 ──
+function buildRecommendReason(dishName: string, description: string, haveNames: string[], tags: string[]): string {
+  const pick = <T>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
+  const ingStr = haveNames.slice(0, 3).join("、");
+  const suffix = haveNames.length > 3 ? "等" : "";
+  const desc = description || "";
+  const tag = (tags && tags.length > 0) ? tags[0] : "";
+
+  // 有匹配食材时的模板池
+  const withIngs = [
+    `冰箱里的${ingStr}${suffix}正好派上用场，${desc || '简单几步就能搞定！'}`,
+    `家里有${ingStr}${suffix}？那这道${dishName}简直是为你量身定做的～`,
+    `${ingStr}${suffix}快用起来吧！${desc || `做一道${dishName}犒劳自己。`}`,
+    `你的${ingStr}${suffix}终于有了最佳归宿——${desc || `一道超赞的${dishName}！`}`,
+    `${ingStr}${suffix}别闲着了！${dishName}${desc ? '，' + desc : '，好吃到停不下来。'}`,
+    `正好冰箱有${ingStr}${suffix}，不如来一道${dishName}吧${desc ? '，' + desc : '！'}`,
+  ];
+
+  // 无匹配食材时的模板池
+  const noIngs = [
+    `${desc || dishName + '，'}${tag ? tag + '爱好者不能错过！' : '值得一试！'}`,
+    `今天就来点不一样的吧～${desc || dishName + '，绝对不会让你失望。'}`,
+    `${dishName}——${desc || '一道让人心情变好的菜。'}`,
+    `想换换口味？${desc || dishName + '了解一下'}～`,
+    `${tag ? '想吃' + tag + '的话，' : ''}${dishName}是个不错的选择${desc ? '，' + desc : '！'}`,
+  ];
+
+  return haveNames.length > 0 ? pick(withIngs) : pick(noIngs);
+}
+
 // ── 场景 → 标签映射 ──
 function getSceneTags(mealType: string): string[] {
   const map: Record<string, string[]> = {
@@ -265,12 +295,13 @@ ${candidateSummary}
 2. 临期食材优先使用
 3. 注意"库存已有"字段表示用户冰箱里已经有的食材，匹配数越多越应该优先推荐
 4. 选出5道菜，返回每道菜的序号、推荐理由、匹配度
+5. **推荐理由风格要求**：写得像朋友在聊天时随口推荐一样，语气自然、轻松、有温度。可以提到用到了冰箱里的哪些食材，也可以说说这道菜好吃在哪里，但不要用"完美利用""智能匹配"这类生硬词汇。长度控制在15-30个字。
 
 ## 输出格式（严格JSON，不要markdown标记）
 [
   {
     "index": 1,
-    "recommendationReason": "推荐理由（结合因何推荐与菜品特色的一句话简评）",
+    "recommendationReason": "推荐理由（像朋友推荐一样自然，提及食材或菜品特色）",
     "matchPercentage": 85,
     "inventoryMatch": 3,
     "ingredientsHave": [{"name": "食材名", "amount": "用量"}],
@@ -306,9 +337,11 @@ ${candidateSummary}
           time: c.time || "",
           difficulty: c.difficulty || "",
           calories: c.calories || "",
-          recommendationReason: realHave.length > 0
-            ? `完美利用了家中的 ${realHave.slice(0, 3).map(i => i.name).join("、")}${realHave.length > 3 ? "等" : ""}。${c.description ? c.description : '省事又美味！'}`
-            : `完美契合您当前的口味偏好。${c.description ? c.description : '快来试试吧！'}`,
+          recommendationReason: buildRecommendReason(
+            c.name, c.description || "",
+            realHave.map((i: any) => i.name),
+            c.tags || []
+          ),
           matchPercentage: allIngs.length > 0 ? Math.round((realHave.length / allIngs.length) * 100) : 60,
           inventoryMatch: realHave.length,
           ingredients: { have: realHave, missing: realMissing },
@@ -335,7 +368,7 @@ ${candidateSummary}
           messages: [
             {
               role: "system",
-              content: "你是一个美食推荐助手。从候选菜品中选出最适合的3道，返回JSON数组。只输出JSON，不要任何额外文字。"
+              content: "你是一个有品味的美食达人朋友。用户请你帮忙挑菜，你说话自然、轻松、有温度，像朋友聊天一样。从候选菜品中选出最适合的5道，返回JSON数组。只输出JSON，不要任何额外文字。"
             },
             { role: "user", content: prompt },
           ],
@@ -455,9 +488,11 @@ ${candidateSummary}
         time: c.time || "",
         difficulty: c.difficulty || "",
         calories: c.calories || "",
-        recommendationReason: realHave.length > 0
-          ? `完美利用了家中的 ${realHave.slice(0, 3).map(i => i.name).join("、")}${realHave.length > 3 ? "等" : ""}。${c.description ? c.description : '省事又美味！'}`
-          : `完美契合您当前的口味偏好。${c.description ? c.description : '快来试试吧！'}`,
+        recommendationReason: buildRecommendReason(
+          c.name, c.description || "",
+          realHave.map((i: any) => i.name),
+          c.tags || []
+        ),
         matchPercentage: allIngs.length > 0 ? Math.round((realHave.length / allIngs.length) * 100) : 60,
         inventoryMatch: realHave.length,
         ingredients: { have: realHave, missing: realMissing },
@@ -506,6 +541,7 @@ ${ingredientList || "暂无食材"}
 1. 推荐5道菜，尽量利用现有食材（如果选择优先使用库存）
 2. 临期食材（剩余天数少的）应优先使用
 3. 每道菜需要包含详细信息
+4. **推荐理由要求**：像朋友聊天时随口推荐美食一样，语气自然、有温度，结合食材和菜品特色，15-30字。绝对不能用"完美利用""智能匹配""根据库存"这类机械式用语。
 
 ## 输出格式
 请严格按以下JSON格式回复，不要添加任何额外文字或markdown标记：
@@ -517,7 +553,7 @@ ${ingredientList || "暂无食材"}
     "time": "预计时间",
     "difficulty": "简单/中等/困难",
     "calories": "预估热量如 350 kcal",
-    "recommendationReason": "推荐理由（结合匹配到的食材，并简述菜品特色，吸引用户）",
+    "recommendationReason": "推荐理由（像朋友推荐一样自然，提及食材或菜品特色）",
     "matchPercentage": 85,
     "inventoryMatch": 3,
     "ingredients": {
@@ -547,7 +583,7 @@ ${ingredientList || "暂无食材"}
       messages: [
         {
           role: "system",
-          content: "你是一个专业的美食推荐助手。请严格按照用户要求的JSON格式输出。"
+          content: "你是一个有品味的美食达人朋友。用户给你点菜，你说话自然、轻松、有温度。请严格按照用户要求的JSON格式输出。"
         },
         { role: "user", content: prompt },
       ],
