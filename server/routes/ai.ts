@@ -263,9 +263,12 @@ router.post("/recommend", async (req: Request, res: Response) => {
     const savedTastes = profile?.taste_preferences?.join("、") || "无";
     const restrictionStr = restrictions.join("、") || "无";
 
-    // 构建候选列表（精简格式）——用模糊匹配重新分类 have/missing
+    // 构建候选列表——根据是否使用库存决定展示格式
     const candidateSummary = candidates.map((r: any, idx: number) => {
       const tags = (r.tags || []).join(",");
+      if (useInventory === false) {
+        return `${idx + 1}. ${r.name} | 标签:${tags} | 时间:${r.time} | 难度:${r.difficulty}`;
+      }
       // 合并原始食材列表，用当前用户库存重新判断 have/missing
       const allIngs = [...(r.ingredients_have || []), ...(r.ingredients_missing || [])];
       const realHave: string[] = [];
@@ -280,6 +283,23 @@ router.post("/recommend", async (req: Request, res: Response) => {
       return `${idx + 1}. ${r.name} | 标签:${tags} | 时间:${r.time} | 难度:${r.difficulty} | 库存已有:${realHave.join(",") || "无"} | 额外需要:${realMissing.join(",") || "无"} | 库存匹配${realHave.length}种`;
     }).join("\n");
 
+    // 根据是否使用库存构建不同的 prompt 段落
+    const inventorySection = useInventory !== false
+      ? `\n## 当前冰箱食材\n${ingredientList || "暂无食材"}\n`
+      : "";
+
+    const requirementsSection = useInventory !== false
+      ? `## 要求
+1. 最重要：优先选择"库存匹配"数量最多的菜品，能用到更多库存食材的菜排在前面
+2. 临期食材优先使用
+3. 选出5道菜，只返回序号和推荐理由
+4. **推荐理由风格**：像朋友随口推荐，自然、轻松、有温度。可以提食材或菜品特色，禁用"完美利用""智能匹配"等词汇。15-30字。`
+      : `## 要求
+1. 根据用户的口味偏好和餐食类型，选出最合适的5道菜
+2. 优先考虑菜品多样性，避免推荐口味或类型雷同的菜
+3. 选出5道菜，只返回序号和推荐理由
+4. **推荐理由风格**：像朋友随口推荐，自然、轻松、有温度。侧重介绍菜品特色和口味亮点，禁用"完美利用""智能匹配"等词汇。15-30字。`;
+
     const prompt = `从以下${candidates.length}道候选菜品中，选出最适合用户的5道。
 
 ## 用户条件
@@ -288,18 +308,11 @@ router.post("/recommend", async (req: Request, res: Response) => {
 - 餐食类型：${mealType || "正餐"}
 - 口味偏好：${tastePreference || savedTastes}
 - 忌口：${restrictionStr}
-
-## 当前冰箱食材
-${ingredientList || "暂无食材"}
-
+${inventorySection}
 ## 候选菜品
 ${candidateSummary}
 
-## 要求
-1. 最重要：优先选择"库存匹配"数量最多的菜品，能用到更多库存食材的菜排在前面
-2. 临期食材优先使用
-3. 选出5道菜，只返回序号和推荐理由
-4. **推荐理由风格**：像朋友随口推荐，自然、轻松、有温度。可以提食材或菜品特色，禁用"完美利用""智能匹配"等词汇。15-30字。
+${requirementsSection}
 
 ## 输出格式（严格JSON，不要markdown标记）
 [
@@ -337,7 +350,7 @@ ${candidateSummary}
           calories: c.calories || "",
           recommendationReason: buildRecommendReason(
             c.name, c.description || "",
-            realHave.map((i: any) => i.name),
+            useInventory !== false ? realHave.map((i: any) => i.name) : [],
             c.tags || []
           ),
           matchPercentage: allIngs.length > 0 ? Math.round((realHave.length / allIngs.length) * 100) : 60,
