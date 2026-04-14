@@ -189,11 +189,11 @@ router.post("/recommend", async (req: Request, res: Response) => {
 
     // 重新计算分数：标签 + 库存匹配（含临期加权）+ 口味偏好
     candidates = candidates.map((r: any) => {
-      // 场景标签匹配（只算原始场景标签）
+      // 场景标签匹配（权重高，确保场景相关菜品排在前面）
       const tagScore = (r.tags || []).reduce((score: number, tag: string) =>
-        sceneTags.includes(tag) ? score + 2 : score, 0);
+        sceneTags.includes(tag) ? score + 10 : score, 0);
 
-      // 口味偏好加分/减分（权重更高，确保口味偏好有实际影响力）
+      // 口味偏好加分/减分
       let tasteScore = 0;
       for (const tag of (r.tags || [])) {
         if (tasteTags.boost.includes(tag)) tasteScore += 8;
@@ -214,20 +214,29 @@ router.post("/recommend", async (req: Request, res: Response) => {
         }
       }
 
-      // combinedTagScore 用于硬筛判断（场景+口味标签都算匹配）
+      // 场景标签匹配分数（用于硬筛）
+      const sceneTagHits = (r.tags || []).reduce((score: number, tag: string) =>
+        sceneTags.includes(tag) ? score + 1 : score, 0);
+      // combinedTagScore 用于兜底硬筛
       const combinedTagScore = (r.tags || []).reduce((score: number, tag: string) =>
         combinedTags.includes(tag) ? score + 1 : score, 0);
 
-      return { ...r, _tagScore: tagScore, _combinedTagScore: combinedTagScore, _score: tagScore + inventoryScore + tasteScore, _inventoryMatched: matchedCount, _tasteScore: tasteScore };
+      return { ...r, _tagScore: tagScore, _sceneTagHits: sceneTagHits, _combinedTagScore: combinedTagScore, _score: tagScore + inventoryScore + tasteScore, _inventoryMatched: matchedCount, _tasteScore: tasteScore };
     });
 
-    // 先硬筛：只保留至少有1个标签匹配的菜谱（场景标签 OR 口味标签）
-    const tagMatched = candidates.filter((r: any) => r._combinedTagScore > 0);
-    if (tagMatched.length >= 3) {
-      candidates = tagMatched;
-      console.log(`[AI] Hard tag filter: kept ${candidates.length} tag-matched recipes`);
+    // 硬筛策略：优先保留场景标签匹配的菜品，不够时再放宽到口味标签
+    const sceneMatched = candidates.filter((r: any) => r._sceneTagHits > 0);
+    if (sceneMatched.length >= 5) {
+      candidates = sceneMatched;
+      console.log(`[AI] Hard tag filter: kept ${candidates.length} scene-matched recipes`);
     } else {
-      console.log(`[AI] Hard tag filter: only ${tagMatched.length} matched, keeping all ${candidates.length}`);
+      const tagMatched = candidates.filter((r: any) => r._combinedTagScore > 0);
+      if (tagMatched.length >= 3) {
+        candidates = tagMatched;
+        console.log(`[AI] Hard tag filter: only ${sceneMatched.length} scene-matched, relaxed to ${candidates.length} combined-matched`);
+      } else {
+        console.log(`[AI] Hard tag filter: only ${tagMatched.length} matched, keeping all ${candidates.length}`);
+      }
     }
 
     // 按分数排序，取前 20 个
