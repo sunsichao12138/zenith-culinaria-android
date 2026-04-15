@@ -154,27 +154,28 @@ export default function Plan() {
 
   return (
     <div className="px-6 py-12 space-y-8 animate-in fade-in duration-500 pb-32">
-      <section className="flex items-center justify-between">
+      <section>
         <h1 className="text-3xl font-bold text-on-surface tracking-tight">今日计划</h1>
-        {plannedRecipes.length > 0 && (
-          <button 
-            onClick={toggleSelectAll}
-            className="text-sm font-bold text-zinc-400 hover:text-zinc-900 transition-colors flex items-center gap-2"
-          >
-            {selectedIds.length === plannedRecipes.length ? "取消全选" : "全选所有"}
-            <div className={cn(
-              "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
-              selectedIds.length === plannedRecipes.length ? "bg-primary border-primary text-white shadow-md shadow-primary/20" : "border-outline-variant"
-            )}>
-              {selectedIds.length === plannedRecipes.length ? (
-                <Check size={12} strokeWidth={3} />
-              ) : (
-                <div className="w-1.5 h-1.5 rounded-full bg-zinc-200" />
-              )}
-            </div>
-          </button>
-        )}
       </section>
+
+      {plannedRecipes.length > 0 && (
+        <button 
+          onClick={toggleSelectAll}
+          className="text-sm font-bold text-zinc-400 hover:text-zinc-900 transition-colors flex items-center gap-2 -mt-4"
+        >
+          {selectedIds.length === plannedRecipes.length ? "取消全选" : "全选所有"}
+          <div className={cn(
+            "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+            selectedIds.length === plannedRecipes.length ? "bg-primary border-primary text-white shadow-md shadow-primary/20" : "border-outline-variant"
+          )}>
+            {selectedIds.length === plannedRecipes.length ? (
+              <Check size={12} strokeWidth={3} />
+            ) : (
+              <div className="w-1.5 h-1.5 rounded-full bg-zinc-200" />
+            )}
+          </div>
+        </button>
+      )}
 
       {plannedRecipes.length > 0 ? (
         <section className="space-y-4">
