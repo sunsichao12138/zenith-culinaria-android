@@ -165,7 +165,7 @@ export default function Home() {
 
       {/* AI Recommendation Banner */}
       <section 
-        className="relative overflow-hidden rounded-2xl bg-surface-container-low border border-orange-100/60 shadow-sm px-5 py-4 cursor-pointer active:scale-[0.99] transition-transform"
+        className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200/60 shadow-sm px-5 py-4 cursor-pointer active:scale-[0.99] transition-transform"
         onClick={() => navigate("/filters")}
       >
         <div className="flex items-center justify-between relative z-10">
