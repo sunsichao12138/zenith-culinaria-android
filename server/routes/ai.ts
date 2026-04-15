@@ -850,7 +850,7 @@ router.post("/auto-fill", async (req: Request, res: Response) => {
 ## 要求
 1. amount：该食材一个人一次购买的常见数量（纯数字）
 2. unit：最适合这个食材的计量单位
-3. expiryDays：该食材在冰箱中的常见保存天数（纯数字）
+3. expiryDays：如果该食材适合放冰箱保存，填写冰箱冷藏的预计保存天数；如果不适合放冰箱（如常温调料、干货等），填写常温保存天数（纯数字）
 4. purchaseDate：默认今天 ${today}
 5. category：最合适的分类
 
