@@ -108,16 +108,16 @@ export default function Fridge() {
             <div className="relative z-10">
               <div className="grid grid-cols-3 gap-3">
                 <div className="flex flex-col items-center justify-center bg-white py-2.5 rounded-[20px]">
-                  <span className="text-2xl font-bold text-primary">{ingredients.length}</span>
-                  <span className="text-[9px] font-bold mt-0.5 text-zinc-400">现有食材</span>
+                  <span className="text-2xl font-bold text-zinc-900">{ingredients.length}</span>
+                  <span className="text-[9px] font-bold mt-0.5 text-zinc-800">现有食材</span>
                 </div>
                 <div className="flex flex-col items-center justify-center bg-white py-2.5 rounded-[20px]">
                   <span className="text-2xl font-bold text-amber-500">{expiringCount}</span>
-                  <span className="text-[9px] font-bold mt-0.5 text-zinc-400">快过期</span>
+                  <span className="text-[9px] font-bold mt-0.5 text-zinc-800">快过期</span>
                 </div>
                 <div className="flex flex-col items-center justify-center bg-white py-2.5 rounded-[20px]">
                   <span className={cn("text-2xl font-bold", expiredCount > 0 ? "text-red-500" : "text-zinc-300")}>{expiredCount}</span>
-                  <span className="text-[9px] font-bold mt-0.5 text-zinc-400">已过期</span>
+                  <span className="text-[9px] font-bold mt-0.5 text-zinc-800">已过期</span>
                 </div>
               </div>
             </div>
