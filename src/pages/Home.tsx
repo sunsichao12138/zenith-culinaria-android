@@ -37,7 +37,7 @@ const ALL_TAGS = [
   { label: "宝宝餐", emoji: "👶" },
   { label: "本周热点", emoji: "🔥" },
   { label: "15分钟快手", emoji: "⏱️", slots: ["morning", "lunch"] },
-  { label: "拯救冰箱", emoji: "🧊", special: true },
+  { label: "拯救冰箱", emoji: "🧊" },
   { label: "来点甜的", emoji: "🍰", slots: ["afternoon"] },
   { label: "喝点东西", emoji: "🥤", slots: ["afternoon"] },
   { label: "家常菜", emoji: "🍳", slots: ["lunch", "dinner"] },
@@ -65,22 +65,15 @@ const getTimeSlot = (): string => {
 // 生成时段感知的标签列表
 const getTimeTags = () => {
   const slot = getTimeSlot();
-  const special = ALL_TAGS.find(t => t.special);
-  // 当前时段优先的标签
-  const slotTags = ALL_TAGS.filter(t => !t.special && t.slots?.includes(slot));
-  // 通用标签（没有 slots 限制的）
-  const generalTags = ALL_TAGS.filter(t => !t.special && !t.slots);
-  // 其他时段的标签
-  const otherTags = ALL_TAGS.filter(t => !t.special && t.slots && !t.slots.includes(slot));
+  const slotTags = ALL_TAGS.filter(t => t.slots?.includes(slot));
+  const generalTags = ALL_TAGS.filter(t => !t.slots);
+  const otherTags = ALL_TAGS.filter(t => t.slots && !t.slots.includes(slot));
 
-  // 先放时段标签（随机排序），再补通用标签，最后补其他时段标签，取5个
-  const pool = [
+  return [
     ...slotTags.sort(() => 0.5 - Math.random()),
     ...generalTags.sort(() => 0.5 - Math.random()),
     ...otherTags.sort(() => 0.5 - Math.random()),
-  ].slice(0, 5);
-
-  return special ? [...pool, special] : pool;
+  ].slice(0, 6);
 };
 
 export default function Home() {
