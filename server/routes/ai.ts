@@ -881,6 +881,7 @@ router.post("/auto-fill", async (req: Request, res: Response) => {
         ],
         max_tokens: 128,
         temperature: 0.3,
+        thinking: { type: "disabled" },
       }),
     });
 
