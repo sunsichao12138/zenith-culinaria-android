@@ -164,26 +164,25 @@ export default function Home() {
       </section>
 
       {/* AI Recommendation Banner */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-orange-500 to-amber-500 text-white shadow-xl shadow-primary/25 px-7 py-6">
-        <div className="space-y-4 relative z-10">
-          <div className="flex items-center gap-2 opacity-90">
-            <Sparkles size={16} className="text-white" />
-            <span className="text-xs tracking-wider uppercase font-bold text-white/90">AI 智能推荐</span>
+      <section 
+        className="relative overflow-hidden rounded-2xl bg-surface-container-low border border-orange-100/60 shadow-sm px-5 py-4 cursor-pointer active:scale-[0.99] transition-transform"
+        onClick={() => navigate("/filters")}
+      >
+        <div className="flex items-center justify-between relative z-10">
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5">
+              <Sparkles size={14} className="text-primary" />
+              <span className="text-[11px] tracking-wider uppercase font-bold text-primary/80">AI 智能推荐</span>
+            </div>
+            <h3 className="font-extrabold text-xl text-on-surface">今天吃什么？</h3>
           </div>
-          <h3 className="font-extrabold text-2xl text-white">今天吃什么？</h3>
-          <p className="text-white/80 text-sm leading-relaxed">
-            根据时间和你的偏好，帮你决定现在吃什么。
-          </p>
           <button 
-            onClick={() => navigate("/filters")}
-            className="w-full bg-white text-primary font-extrabold rounded-full py-3.5 transition-transform active:scale-95 hover:bg-orange-50 shadow-lg text-base"
+            onClick={(e) => { e.stopPropagation(); navigate("/filters"); }}
+            className="bg-gradient-to-r from-primary to-orange-500 text-white font-extrabold rounded-full px-6 py-2.5 text-sm shadow-md shadow-primary/25 active:scale-95 transition-transform whitespace-nowrap"
           >
-            开始推荐
+            帮我选
           </button>
         </div>
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-10 -mb-10"></div>
       </section>
 
       {/* Quick Tags */}
