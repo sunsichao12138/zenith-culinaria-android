@@ -70,7 +70,10 @@ export default function Plan() {
     });
 
     // 2) 构建消耗列表 —— 与菜品食材保持完全一致
-    const allIngredients = selectedRecipes.flatMap(r => [...r.ingredients.have, ...r.ingredients.missing]);
+    const allIngredients = selectedRecipes.flatMap(r => [
+      ...(r.ingredients?.have || []),
+      ...(r.ingredients?.missing || []),
+    ]);
     const list: Array<{name: string, requiredStr: string, amount: number, unit: string, stock: string}> = [];
     // 用于合并同名食材
     const indexMap = new Map<string, number>();
