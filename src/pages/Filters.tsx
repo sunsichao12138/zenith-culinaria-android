@@ -182,18 +182,32 @@ export default function Filters() {
               </button>
             </div>
           </div>
+
+          {/* 查看更多筛选条件 - 紧靠库存开关下方 */}
+          {!showDetailedFilters && (
+            <button
+              onClick={() => setShowDetailedFilters(true)}
+              className="w-full flex items-center justify-center gap-1 py-2.5 mt-2 text-zinc-400 text-sm font-medium hover:text-zinc-600 active:scale-95 transition-all"
+            >
+              查看更多筛选条件
+              <ChevronDown size={14} />
+            </button>
+          )}
         </div>
 
         {/* ═══ 详细筛选 ═══ */}
-        <div className="mb-5">
+        <AnimatePresence>
+        {showDetailedFilters && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.25 }}
+          className="overflow-hidden mb-5"
+        >
           <label className="font-bold tracking-widest text-zinc-400 uppercase text-[10px] block mb-3">详细筛选</label>
           
-          <div className="relative">
-            {/* 详细筛选内容区 */}
-            <div className={cn(
-              "space-y-4 transition-all duration-300",
-              !showDetailedFilters && "max-h-[0px] overflow-hidden"
-            )}>
+          <div className="space-y-4">
 
               {/* 人数 */}
               {showPeopleFilter && (
@@ -276,34 +290,19 @@ export default function Filters() {
                   ))}
                 </div>
               </div>
-            </div>
-
-            {/* 渐变遮挡 + 查看更多按钮（未展开时） */}
-            {!showDetailedFilters && (
-              <div className="relative mt-0">
-                <div className="absolute bottom-full left-0 right-0 h-8 bg-gradient-to-t from-surface to-transparent pointer-events-none" />
-                <button
-                  onClick={() => setShowDetailedFilters(true)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 text-primary text-sm font-bold hover:text-orange-600 active:scale-95 transition-all"
-                >
-                  查看更多筛选条件
-                  <ChevronDown size={16} />
-                </button>
-              </div>
-            )}
-
-            {/* 收起按钮（已展开时） */}
-            {showDetailedFilters && (
-              <button
-                onClick={() => setShowDetailedFilters(false)}
-                className="w-full flex items-center justify-center gap-1.5 py-2.5 mt-2 text-zinc-400 text-sm font-medium hover:text-zinc-600 active:scale-95 transition-all"
-              >
-                收起筛选条件
-                <ChevronDown size={16} className="rotate-180" />
-              </button>
-            )}
           </div>
-        </div>
+
+          {/* 收起按钮 */}
+          <button
+            onClick={() => setShowDetailedFilters(false)}
+            className="w-full flex items-center justify-center gap-1 py-2.5 mt-2 text-zinc-400 text-sm font-medium hover:text-zinc-600 active:scale-95 transition-all"
+          >
+            收起筛选条件
+            <ChevronDown size={14} className="rotate-180" />
+          </button>
+        </motion.div>
+        )}
+        </AnimatePresence>
 
         {/* 生成按钮 */}
         <button 
