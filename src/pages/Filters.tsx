@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowRight, Sparkles, Package, Clock, Plus, Heart, Check, ChevronsDown, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, Sparkles, Package, Clock, Plus, Heart, Check, ChevronsDown, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import { useFavorites } from "../context/FavoritesContext";
@@ -30,6 +30,7 @@ export default function Filters() {
   const [prepTime, setPrepTime] = useState(cachedResults?.filters?.prepTime || "30分钟内");
   const [mealType, setMealType] = useState(initialTag || cachedResults?.filters?.mealType || "正餐");
   const [tastePreference, setTastePreference] = useState(cachedResults?.filters?.tastePreference || "咸香");
+  const [drinkAlcohol, setDrinkAlcohol] = useState(cachedResults?.filters?.drinkAlcohol || "无酒精");
   const [useInventory, setUseInventory] = useState(cachedResults?.filters?.useInventory ?? true);
   const [showResults, setShowResults] = useState(!!cachedResults);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,7 +42,7 @@ export default function Filters() {
     const body = filters || {
       peopleCount,
       prepTime,
-      mealType,
+      mealType: mealType === "饮品" ? `饮品(${drinkAlcohol})` : mealType,
       tastePreference,
       useInventory,
     };
@@ -53,7 +54,7 @@ export default function Filters() {
         setIsLoading(false);
         setShowResults(true);
         localStorage.setItem("ai_recommend_cache", JSON.stringify({
-          recipes: data, isAiSource: true, filters: body,
+          recipes: data, isAiSource: true, filters: { ...body, drinkAlcohol },
         }));
       })
       .catch((err) => {
@@ -64,7 +65,7 @@ export default function Filters() {
             setRecipes(data);
             setShowResults(true);
             localStorage.setItem("ai_recommend_cache", JSON.stringify({
-              recipes: data, isAiSource: false, filters: body,
+              recipes: data, isAiSource: false, filters: { ...body, drinkAlcohol },
             }));
           })
           .catch(() => {})
@@ -98,29 +99,26 @@ export default function Filters() {
   const [showAll, setShowAll] = useState(false);
   const displayRecipes = showAll ? recipes.slice(0, 10) : recipes.slice(0, 5);
 
-  // 快速筛选选项
+  // 快速筛选选项（去掉深夜食堂、宝宝餐、微醺）
   const mealTypes = [
     { label: "正餐", emoji: "🍳" },
     { label: "轻食", emoji: "🥗" },
     { label: "早餐", emoji: "🥞" },
     { label: "下午茶", emoji: "🍰" },
     { label: "饮品", emoji: "🧋" },
-    { label: "微醺", emoji: "🍷" },
-    { label: "深夜食堂", emoji: "🌙" },
-    { label: "宝宝餐", emoji: "👶" },
   ];
 
-  // 根据快速筛选类型，决定详细筛选中的口味选项
+  // 根据快速筛选类型 → 口味选项
   const getTasteOptions = () => {
-    if (["饮品", "微醺"].includes(mealType)) return ["冰爽", "常温", "热饮", "甜口", "微酸"];
+    if (mealType === "饮品") return ["冰爽", "常温", "热饮", "甜口", "微酸"];
     if (mealType === "下午茶") return ["甜口", "咸口", "清淡", "奶香"];
-    if (mealType === "宝宝餐") return ["清淡", "甜口", "软糯"];
     return ["清淡", "甜口", "咸香", "香辣"];
   };
 
-  const showPeopleFilter = ["正餐", "轻食", "早餐", "深夜食堂", "宝宝餐"].includes(mealType);
-  const showTimeFilter = ["正餐", "早餐", "深夜食堂"].includes(mealType);
-  const tasteLabel = ["饮品", "微醺"].includes(mealType) ? "口感偏好" : "口味偏好";
+  const showPeopleFilter = ["正餐", "轻食", "早餐"].includes(mealType);
+  const showTimeFilter = ["正餐", "早餐"].includes(mealType);
+  const showAlcoholFilter = mealType === "饮品";
+  const tasteLabel = mealType === "饮品" ? "口感偏好" : "口味偏好";
 
   return (
     <div className="min-h-screen bg-surface max-w-md mx-auto relative shadow-2xl animate-in slide-in-from-bottom duration-500">
@@ -140,8 +138,8 @@ export default function Filters() {
           </div>
 
           {/* ═══ 快速筛选 - 始终显示 ═══ */}
-          <div className="space-y-3 mb-5">
-            <label className="font-bold tracking-widest text-zinc-400 uppercase text-[10px] block">想吃什么</label>
+          <div className="space-y-3 mb-4">
+            <label className="font-bold tracking-widest text-zinc-400 uppercase text-[10px] block">快速筛选</label>
             <div className="flex flex-wrap gap-2">
               {mealTypes.map(({ label, emoji }) => (
                 <button
@@ -160,34 +158,20 @@ export default function Filters() {
             </div>
           </div>
 
-          {/* 生成按钮 + 详细筛选入口 */}
-          <div className="flex items-center gap-3 mb-2">
-            <button 
-              onClick={handleGenerate}
-              disabled={isLoading || !mealType}
-              className={cn(
-                "flex-1 rounded-full bg-primary text-white font-bold text-base flex items-center justify-center gap-2 py-3.5 shadow-xl shadow-primary/30 active:scale-[0.98] transition-all hover:bg-orange-600",
-                (isLoading || !mealType) && "opacity-50 cursor-not-allowed scale-95"
-              )}
-            >
-              <Sparkles size={20} className={cn(isLoading && "animate-spin")} />
-              {isLoading ? "生成中..." : "生成菜单"}
-            </button>
-            <button
-              onClick={() => setShowDetailedFilters(!showDetailedFilters)}
-              className={cn(
-                "flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all active:scale-90",
-                showDetailedFilters
-                  ? "bg-primary/10 border-primary text-primary"
-                  : "bg-white border-zinc-200 text-zinc-400"
-              )}
-              title="详细筛选"
-            >
-              <SlidersHorizontal size={20} />
-            </button>
-          </div>
+          {/* ═══ 详细筛选 - 下拉组件 ═══ */}
+          <button
+            onClick={() => setShowDetailedFilters(!showDetailedFilters)}
+            className={cn(
+              "w-full flex items-center justify-between px-5 py-3 rounded-2xl border transition-all mb-4",
+              showDetailedFilters
+                ? "bg-primary/5 border-primary/30 text-primary"
+                : "bg-white border-zinc-200 text-zinc-500"
+            )}
+          >
+            <span className="text-sm font-bold">详细筛选</span>
+            {showDetailedFilters ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
 
-          {/* ═══ 详细筛选 - 下拉展示 ═══ */}
           <AnimatePresence>
             {showDetailedFilters && (
               <motion.div 
@@ -197,7 +181,7 @@ export default function Filters() {
                 transition={{ duration: 0.25 }}
                 className="overflow-hidden"
               >
-                <div className="mt-3 space-y-5 pt-4 pb-2 border-t border-zinc-100">
+                <div className="space-y-5 pb-4 mb-4 border-b border-zinc-100">
 
                   {/* 人数 */}
                   {showPeopleFilter && (
@@ -235,6 +219,27 @@ export default function Filters() {
                             )}
                           >
                             {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 饮品 → 酒精/无酒精 */}
+                  {showAlcoholFilter && (
+                    <div className="space-y-3">
+                      <label className="font-bold tracking-widest text-zinc-400 uppercase text-[10px] block">饮品类型</label>
+                      <div className="flex gap-2">
+                        {["无酒精", "含酒精"].map((opt) => (
+                          <button
+                            key={opt}
+                            onClick={() => setDrinkAlcohol(drinkAlcohol === opt ? "" : opt)}
+                            className={cn(
+                              "px-5 py-2 rounded-full text-sm font-medium transition-all border",
+                              drinkAlcohol === opt ? "bg-primary text-white border-primary shadow-md shadow-primary/20" : "bg-white text-zinc-900 border-zinc-200 shadow-sm"
+                            )}
+                          >
+                            {opt === "含酒精" ? "🍷 含酒精" : "🧃 无酒精"}
                           </button>
                         ))}
                       </div>
@@ -296,6 +301,19 @@ export default function Filters() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* 生成按钮 */}
+          <button 
+            onClick={handleGenerate}
+            disabled={isLoading || !mealType}
+            className={cn(
+              "w-full rounded-full bg-primary text-white font-bold text-base flex items-center justify-center gap-2 py-3.5 shadow-xl shadow-primary/30 active:scale-[0.98] transition-all hover:bg-orange-600",
+              (isLoading || !mealType) && "opacity-50 cursor-not-allowed scale-95"
+            )}
+          >
+            <Sparkles size={20} className={cn(isLoading && "animate-spin")} />
+            {isLoading ? "生成中..." : "生成菜单"}
+          </button>
         </section>
 
         {/* ═══ 加载 & 结果 ═══ */}
