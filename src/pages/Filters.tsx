@@ -209,27 +209,6 @@ export default function Filters() {
           
           <div className="space-y-4">
 
-              {/* 人数 */}
-              {showPeopleFilter && (
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-zinc-500">几个人吃</label>
-                  <div className="flex gap-2">
-                    {["1人", "2人", "3人+"].map((opt) => (
-                      <button
-                        key={opt}
-                        onClick={() => setPeopleCount(peopleCount === opt ? "" : opt)}
-                        className={cn(
-                          "px-5 py-2 rounded-full text-sm font-medium transition-all border",
-                          peopleCount === opt ? "bg-primary text-white border-primary shadow-md shadow-primary/20" : "bg-white text-zinc-900 border-zinc-200 shadow-sm"
-                        )}
-                      >
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* 烹饪时间 */}
               {showTimeFilter && (
                 <div className="space-y-2">
