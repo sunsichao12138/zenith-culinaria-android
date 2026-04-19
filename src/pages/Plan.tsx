@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, ArrowRight, Sparkles, Clock, Check, Trash2, X, ChefHat, ShoppingBasket, Loader2, ChevronDown, ChevronUp, Users, User, UserPlus } from "lucide-react";
+import { Calendar, ArrowRight, Sparkles, Clock, Check, Trash2, X, ChefHat, ShoppingBasket, Loader2, ChevronDown, ChevronUp, Users, User, UserPlus, Camera, MessageSquare, PartyPopper } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { usePlan } from "../context/PlanContext";
 import { cn } from "../lib/utils";
@@ -18,6 +18,9 @@ export default function Plan() {
   const [showFamilySwitcher, setShowFamilySwitcher] = useState(false);
   const [showFamilyModal, setShowFamilyModal] = useState(false);
   const { families, currentFamily, mode, switchMode } = useFamily();
+  const [showCookingComplete, setShowCookingComplete] = useState(false);
+  const [completedRecipes, setCompletedRecipes] = useState<Array<{id: string, name: string, image: string, note: string, photo: string | null}>>([]); 
+  const photoInputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
 
   const toggleSelect = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -143,10 +146,49 @@ export default function Plan() {
     }
 
     // 从计划中移除已选菜品
+    const recipesForComplete = selectedRecipes.map(r => ({
+      id: r.id, name: r.name, image: r.image || '', note: '', photo: null as string | null
+    }));
     selectedIds.forEach(id => removeFromPlan(id));
     setSelectedIds([]);
     setShowConsumeModal(false);
     setConsuming(false);
+    // 弹出烹饪完成页面
+    setCompletedRecipes(recipesForComplete);
+    setShowCookingComplete(true);
+  };
+
+  const handlePhotoUpload = (recipeId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const canvas = document.createElement('canvas');
+    const maxSize = 400;
+    canvas.width = maxSize; canvas.height = maxSize;
+    const ctx = canvas.getContext('2d')!;
+    const img = new Image();
+    img.onload = () => {
+      const minDim = Math.min(img.width, img.height);
+      const sx = (img.width - minDim) / 2;
+      const sy = (img.height - minDim) / 2;
+      ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, maxSize, maxSize);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      setCompletedRecipes(prev => prev.map(r => r.id === recipeId ? {...r, photo: dataUrl} : r));
+    };
+    img.src = URL.createObjectURL(file);
+  };
+
+  const handleSaveCookingRecord = async () => {
+    try {
+      await api.post('/history/cooking-records', {
+        records: completedRecipes.map(r => ({
+          recipeId: r.id, recipeName: r.name, note: r.note, photo: r.photo
+        }))
+      });
+    } catch (err) {
+      console.error('Failed to save cooking records:', err);
+    }
+    setShowCookingComplete(false);
+    setCompletedRecipes([]);
   };
 
 
@@ -354,67 +396,58 @@ export default function Plan() {
                 <X size={20} />
               </button>
 
-              <div className="flex items-start gap-4 mb-6 mt-2 pr-8">
-                <div className="w-14 h-14 bg-orange-50/50 text-primary rounded-full flex items-center justify-center shrink-0 border border-orange-100/50">
-                  <ShoppingBasket size={24} />
+              <div className="flex items-start gap-3 mb-4 mt-2 pr-8">
+                <div className="w-12 h-12 bg-orange-50/50 text-primary rounded-full flex items-center justify-center shrink-0 border border-orange-100/50">
+                  <ShoppingBasket size={20} />
                 </div>
-                <div className="flex flex-col mt-1">
-                  <h2 className="text-xl font-extrabold text-zinc-900 tracking-tight">确认食材消耗</h2>
-                  <p className="text-zinc-400 text-[11px] mt-1.5 font-medium leading-relaxed">请核对本次烹饪实际消耗的食材总量</p>
+                <div className="flex flex-col mt-0.5">
+                  <h2 className="text-lg font-extrabold text-zinc-900 tracking-tight">确认食材消耗</h2>
+                  <p className="text-zinc-400 text-[10px] mt-1 font-medium">请核对本次烹饪实际消耗的食材总量</p>
                 </div>
               </div>
 
-              <div className="flex-grow overflow-y-auto custom-scrollbar pt-2 pb-4">
-                <div className="border border-zinc-100 rounded-[28px] p-3 shadow-[inset_0_0_20px_rgba(0,0,0,0.01)] bg-zinc-50/20">
+              <div className="flex-grow overflow-y-auto custom-scrollbar pb-3">
+                <div className="border border-zinc-100 rounded-2xl p-2.5 bg-zinc-50/20">
                   {consumeList.map((item, index) => (
-                    <div key={index} className="flex flex-col p-4 bg-white rounded-[20px] border border-zinc-100/80 mb-3 last:mb-0 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="font-extrabold text-zinc-900 text-[15px]">{item.name}</span>
-                        <span className="text-[11px] text-zinc-400 font-bold">所需 {item.requiredStr}</span>
-                      </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <div className="text-[11px] text-zinc-400 font-bold flex-1 flex items-center">
-                          库存 <span className="text-zinc-700 ml-1.5 font-extrabold">{item.stock}</span>
-                        </div>
-                        <div className="text-zinc-200 mx-2"><ArrowRight size={14} /></div>
-                        <div className="flex items-center gap-3 flex-1 justify-end">
-                          <span className="text-[11px] text-zinc-400 font-bold">消耗</span>
-                          <div className="flex items-center h-[34px] rounded-full border border-zinc-200 bg-white px-3 flex-shrink-0 shadow-sm">
-                            <input 
-                              type="number" 
-                              value={item.amount}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                const newList = [...consumeList];
-                                newList[index].amount = val;
-                                setConsumeList(newList);
-                              }}
-                              className="w-10 text-center bg-transparent focus:outline-none font-bold text-zinc-900 text-[13px]"
-                            />
-                            {item.unit && <span className="ml-1 text-zinc-400 text-[10px] font-bold">{item.unit}</span>}
-                          </div>
+                    <div key={index} className="flex items-center gap-2 p-2.5 bg-white rounded-xl border border-zinc-100/80 mb-1.5 last:mb-0 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+                      <span className="font-extrabold text-zinc-900 text-[13px] flex-shrink-0 truncate max-w-[72px]">{item.name}</span>
+                      <span className="text-[9px] text-zinc-400 font-bold flex-shrink-0">需{item.requiredStr}</span>
+                      <span className="text-[9px] text-zinc-400 font-bold flex-shrink-0">存<span className="text-zinc-700 font-extrabold ml-0.5">{item.stock}</span></span>
+                      <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+                        <span className="text-[9px] text-zinc-400 font-bold">耗</span>
+                        <div className="flex items-center h-[26px] rounded-full border border-zinc-200 bg-white px-2 shadow-sm">
+                          <input 
+                            type="number" 
+                            value={item.amount}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              const newList = [...consumeList];
+                              newList[index].amount = val;
+                              setConsumeList(newList);
+                            }}
+                            className="w-8 text-center bg-transparent focus:outline-none font-bold text-zinc-900 text-[12px]"
+                          />
+                          {item.unit && <span className="text-zinc-400 text-[9px] font-bold">{item.unit}</span>}
                         </div>
                       </div>
                     </div>
                   ))}
                   
                   {consumeList.length === 0 && (
-                    <div className="text-center py-8 text-zinc-400 text-sm font-medium">
+                    <div className="text-center py-6 text-zinc-400 text-sm font-medium">
                       没有可以消耗的食材
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="flex-shrink-0 mt-4">
-                <div className="text-center mb-6 mt-1">
-                  <p className="text-[11px] text-zinc-400/80 font-bold tracking-wide">如果有新购入食材请及时补充库存哦</p>
-                </div>
+              <div className="flex-shrink-0 mt-3">
+                <p className="text-center text-[10px] text-zinc-400/80 font-bold tracking-wide mb-3">如果有新购入食材请及时补充库存哦</p>
                 <button 
                   onClick={confirmConsumption}
                   disabled={consuming}
                   className={cn(
-                    "w-full py-[1.125rem] rounded-[24px] font-bold text-[15px] shadow-xl transition-all flex items-center justify-center gap-2",
+                    "w-full py-3.5 rounded-full font-bold text-sm shadow-xl transition-all flex items-center justify-center gap-2",
                     consuming
                       ? "bg-zinc-300 text-zinc-500 cursor-not-allowed"
                       : "bg-primary text-white shadow-lg shadow-primary/30 hover:bg-orange-600 active:scale-95"
@@ -422,6 +455,111 @@ export default function Plan() {
                 >
                   {consuming && <Loader2 size={16} className="animate-spin" />}
                   {consuming ? "正在处理..." : "确认消耗并继续"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Cooking Complete Modal */}
+      <AnimatePresence>
+        {showCookingComplete && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 200 }}
+              className="relative bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+            >
+              <button 
+                onClick={() => { setShowCookingComplete(false); setCompletedRecipes([]); }}
+                className="absolute top-5 right-5 p-2 text-zinc-400 hover:text-zinc-600 rounded-full transition-colors z-10"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="flex flex-col items-center mb-5 pt-2">
+                <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mb-3">
+                  <PartyPopper size={28} className="text-emerald-500" />
+                </div>
+                <h2 className="text-xl font-extrabold text-zinc-900">烹饪完成！</h2>
+                <p className="text-zinc-400 text-xs mt-1">记录一下你的烹饪成果吧</p>
+              </div>
+
+              <div className="flex-grow overflow-y-auto custom-scrollbar space-y-3 pb-4">
+                {completedRecipes.map((recipe) => (
+                  <div key={recipe.id} className="bg-zinc-50 rounded-2xl p-4 border border-zinc-100 space-y-3">
+                    <div className="flex items-center gap-3">
+                      {recipe.image && (
+                        <img src={recipe.image} alt={recipe.name} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" referrerPolicy="no-referrer" />
+                      )}
+                      <h4 className="font-bold text-sm text-zinc-900 truncate">{recipe.name}</h4>
+                    </div>
+
+                    {/* Photo upload */}
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        ref={el => { photoInputRefs.current[recipe.id] = el; }}
+                        onChange={(e) => handlePhotoUpload(recipe.id, e)}
+                      />
+                      {recipe.photo ? (
+                        <div className="relative">
+                          <img src={recipe.photo} alt="成果照片" className="w-full h-32 object-cover rounded-xl" />
+                          <button
+                            onClick={() => setCompletedRecipes(prev => prev.map(r => r.id === recipe.id ? {...r, photo: null} : r))}
+                            className="absolute top-2 right-2 w-6 h-6 bg-black/50 text-white rounded-full flex items-center justify-center"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => photoInputRefs.current[recipe.id]?.click()}
+                          className="w-full h-20 border-2 border-dashed border-zinc-200 rounded-xl flex flex-col items-center justify-center gap-1 text-zinc-400 hover:border-primary hover:text-primary transition-colors active:scale-95"
+                        >
+                          <Camera size={18} />
+                          <span className="text-[10px] font-bold">上传成果照片</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Text note */}
+                    <div className="relative">
+                      <MessageSquare size={14} className="absolute left-3 top-3 text-zinc-300" />
+                      <textarea
+                        placeholder="记录一下烹饪心得..."
+                        value={recipe.note}
+                        onChange={(e) => setCompletedRecipes(prev => prev.map(r => r.id === recipe.id ? {...r, note: e.target.value} : r))}
+                        className="w-full bg-white border border-zinc-100 rounded-xl pl-9 pr-3 py-2.5 text-xs text-zinc-700 placeholder:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none h-16"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-3 pt-3 flex-shrink-0">
+                <button
+                  onClick={() => { setShowCookingComplete(false); setCompletedRecipes([]); }}
+                  className="flex-1 py-3 rounded-full border border-zinc-200 text-zinc-500 font-bold text-sm active:scale-95 transition-all"
+                >
+                  跳过
+                </button>
+                <button
+                  onClick={handleSaveCookingRecord}
+                  className="flex-1 py-3 rounded-full bg-primary text-white font-bold text-sm shadow-lg shadow-primary/30 active:scale-95 transition-all"
+                >
+                  保存记录
                 </button>
               </div>
             </motion.div>

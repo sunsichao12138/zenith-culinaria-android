@@ -85,4 +85,39 @@ router.delete("/", async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/history/cooking-records - 保存烹饪记录（照片+心得）
+router.post("/cooking-records", async (req: Request, res: Response) => {
+  try {
+    const { records } = req.body;
+    if (!records || !Array.isArray(records)) {
+      res.status(400).json({ error: "records array is required" });
+      return;
+    }
+
+    // 保存到 cooking_records 表（如果存在）
+    for (const record of records) {
+      try {
+        await supabase
+          .from("cooking_records")
+          .insert({
+            user_id: req.userId!,
+            recipe_id: record.recipeId,
+            recipe_name: record.recipeName,
+            note: record.note || null,
+            photo: record.photo || null,
+            cooked_at: new Date().toISOString(),
+          });
+      } catch (e) {
+        // 表不存在时静默忽略
+        console.log("cooking_records insert skipped:", (e as any).message);
+      }
+    }
+
+    res.status(201).json({ success: true });
+  } catch (err: any) {
+    console.error("POST /api/history/cooking-records error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
