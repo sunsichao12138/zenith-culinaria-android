@@ -265,13 +265,16 @@ export default function Home() {
 
                   {/* Right: Content */}
                   <div className="flex-grow min-w-0 flex flex-col justify-between">
-                    {/* Title + Rating + Favorite */}
+                    {/* Title + Slot Tag + Favorite */}
                     <div className="flex items-center gap-1">
                       <h5 className="text-sm font-extrabold text-on-surface truncate flex-grow">{pick.name}</h5>
-                      <div className="flex items-center gap-0.5 flex-shrink-0">
-                        <Star size={10} className="text-amber-400 fill-amber-400" />
-                        <span className="text-[10px] font-bold text-amber-500">{rating}</span>
-                      </div>
+                      <span className={cn(
+                        "flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold rounded-full border whitespace-nowrap flex-shrink-0",
+                        slotCfg.color
+                      )}>
+                        <SlotIcon size={9} />
+                        {slotCfg.label}
+                      </span>
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
@@ -291,15 +294,17 @@ export default function Home() {
                       {pick.hint || pick.description}
                     </p>
 
-                    {/* Slot Tag */}
+                    {/* Rating + Description Tag */}
                     <div className="flex items-center gap-1.5">
-                      <span className={cn(
-                        "flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold rounded-full border whitespace-nowrap",
-                        slotCfg.color
-                      )}>
-                        <SlotIcon size={9} />
-                        {slotCfg.label}
-                      </span>
+                      <div className="flex items-center gap-0.5">
+                        <Star size={10} className="text-amber-400 fill-amber-400" />
+                        <span className="text-[10px] font-bold text-amber-500">{rating}</span>
+                      </div>
+                      {pick.description && (
+                        <span className="text-[10px] text-on-surface-variant bg-surface-container-low px-2 py-0.5 rounded-full font-medium truncate">
+                          {pick.description.slice(0, 12)}
+                        </span>
+                      )}
                     </div>
 
                     {/* Time + Inventory + Add Button */}
