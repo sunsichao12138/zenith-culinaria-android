@@ -711,7 +711,8 @@ ${ingredientList || "暂无食材"}
 router.post("/recognize-image", async (req: Request, res: Response) => {
   try {
     const apiKey = process.env.ARK_API_KEY;
-    const modelId = process.env.ARK_VISION_MODEL_ID || process.env.ARK_MODEL_ID || "doubao-1.5-pro-256k-250115";
+    // 视觉识别专用模型（Seed-2.0-mini，比 lite 快 12x）
+    const modelId = process.env.ARK_VISION_MODEL_ID || "ep-20260407202624-dq5cf";
     const arkEndpoint = process.env.ARK_API_ENDPOINT || "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
 
     if (!apiKey) {
@@ -725,7 +726,7 @@ router.post("/recognize-image", async (req: Request, res: Response) => {
       return;
     }
 
-    console.log(`[AI] Recognizing image, size: ${Math.round(image.length / 1024)}KB`);
+    console.log(`[AI] Recognizing image, model: ${modelId}, size: ${Math.round(image.length / 1024)}KB`);
 
     const today = new Date().toISOString().split("T")[0];
 
@@ -745,17 +746,10 @@ router.post("/recognize-image", async (req: Request, res: Response) => {
 克、千克、个、瓶、盒、袋
 
 ## 输出格式（严格JSON，不要markdown标记，不要额外文字）
-{
-  "name": "食材名称",
-  "category": "分类",
-  "amount": "数量（纯数字）",
-  "unit": "单位",
-  "purchaseDate": "${today}",
-  "expiryDays": "保存天数（纯数字）"
-}`;
+{"name":"食材名称","category":"分类","amount":"数量","unit":"单位","purchaseDate":"${today}","expiryDays":"天数"}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
     const response = await fetch(arkEndpoint, {
       method: "POST",
@@ -780,6 +774,7 @@ router.post("/recognize-image", async (req: Request, res: Response) => {
         ],
         temperature: 0.3,
         max_tokens: 256,
+        thinking: { type: "disabled" },
       }),
     });
     clearTimeout(timeout);
