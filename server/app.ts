@@ -1,6 +1,3 @@
-import dotenv from "dotenv";
-dotenv.config({ path: ".env.local" });
-
 import express from "express";
 import cors from "cors";
 
@@ -15,7 +12,6 @@ import profileRouter from "./routes/profile.js";
 import aiRouter from "./routes/ai.js";
 import familiesRouter from "./routes/families.js";
 import ingredientLogsRouter from "./routes/ingredient-logs.js";
-dotenv.config();
 
 const app = express();
 
