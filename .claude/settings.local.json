@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(robocopy \"c:\\\\Users\\\\ssc\\\\Downloads\\\\zenith-culinaria\" \"D:\\\\studys\\\\shixi\\\\cp\\\\menumind\" /E /MOVE /NFL /NDL /NJH /NJS 2>&1)",
+      "PowerShell(Get-Process -Id \\(Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue\\).OwningProcess -ErrorAction SilentlyContinue | Select-Object Id, ProcessName)",
+      "PowerShell($conn = Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue; if \\($conn\\) { Stop-Process -Id $conn.OwningProcess -Force; Write-Host \"Killed PID $\\($conn.OwningProcess\\)\" } else { Write-Host \"Port 3001 is free\" })",
+      "PowerShell(Start-Process \"http://localhost:3000\")",
+      "Bash(xargs grep *)",
+      "Bash(git add *)",
+      "Bash(git reset *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git remote *)",
+      "PowerShell(Select-String -Path \"d:\\\\studys\\\\shixi\\\\cp\\\\menumind\\\\supabase\\\\seed.sql\" -Pattern \"ARRAY\\\\[[^\\\\]]+\\\\]\" -AllMatches | ForEach-Object { $_.Matches } | ForEach-Object { $_.Value } | Sort-Object -Unique | Select-Object -First 50)",
+      "PowerShell(Select-String -Path \"d:\\\\studys\\\\shixi\\\\cp\\\\menumind\\\\supabase\\\\seed.sql\" -Pattern \"ARRAY\\\\[[^\\\\]]+\\\\], '\\\\d+分钟'\" -AllMatches | ForEach-Object { $_.Matches } | ForEach-Object { \\($_.Value -split \",\"\\)[0..2] -join \",\" } | Sort-Object -Unique)",
+      "PowerShell($content = Get-Content \"d:\\\\studys\\\\shixi\\\\cp\\\\menumind\\\\scripts\\\\seed-recipes.ts\" -Raw; $matches = [regex]::Matches\\($content, 'tags:\\\\[\\([^\\\\]]+\\)\\\\]'\\); $allTags = @\\(\\); foreach \\($m in $matches\\) { $tagsStr = $m.Groups[1].Value; $tagList = [regex]::Matches\\($tagsStr, '\"\\([^\"]+\\)\"'\\); foreach \\($t in $tagList\\) { $allTags += $t.Groups[1].Value } }; $allTags | Group-Object | Sort-Object Count -Descending | Select-Object Count, Name)",
+      "PowerShell($content = Get-Content \"d:\\\\studys\\\\shixi\\\\cp\\\\menumind\\\\scripts\\\\seed-recipes.ts\" -Raw; $tagMatches = [regex]::Matches\\($content, 'tags:\\\\[\\([^\\\\]]+\\)\\\\]'\\); Write-Host \"Total recipes with tags: $\\($tagMatches.Count\\)\"; $allTags = @\\(\\); foreach \\($m in $tagMatches\\) { $tagList = [regex]::Matches\\($m.Groups[1].Value, '\"\\([^\"]+\\)\"'\\); foreach \\($t in $tagList\\) { $allTags += $t.Groups[1].Value } }; Write-Host \"Total tag instances: $\\($allTags.Count\\)\"; $allTags | Group-Object | Sort-Object Count -Descending | ForEach-Object { \"{0,4}  {1}\" -f $_.Count, $_.Name })",
+      "Bash(python -c ' *)"
+    ]
+  }
+}

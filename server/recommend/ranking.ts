@@ -38,23 +38,27 @@ export function mergeAndRank(
     };
   });
 
-  // 硬筛：场景标签必须匹配（含口味标签兜底）
+  // 硬筛：场景标签必须匹配（严格模式）
+  // 选了"汤类"就只返回汤，选了"早餐"就只返回早餐，绝不混入其他类型
   let candidates = scored;
   if (opts.enforceSceneFilter) {
     const sceneMatched = scored.filter((s) => s.sceneTagHits > 0);
-    if (sceneMatched.length >= 3) {
+    if (sceneMatched.length > 0) {
       candidates = sceneMatched;
       console.log(`[Rank] Hard scene filter: kept ${candidates.length} scene-matched`);
     } else {
+      // 场景完全无命中时，用 combinedTags（场景+口味）兜底
       const tagMatched = scored.filter((s) => s.combinedTagHits > 0);
-      if (tagMatched.length >= 3) {
+      if (tagMatched.length > 0) {
         candidates = tagMatched;
         console.log(
-          `[Rank] Hard scene filter: only ${sceneMatched.length} scene-matched, relaxed to ${candidates.length} combined-matched`
+          `[Rank] Hard scene filter: 0 scene-matched, relaxed to ${candidates.length} combined-matched`
         );
       } else {
+        // 仍然无命中 → 候选为空，让 pipeline 走 fullGeneration 兜底
+        candidates = [];
         console.log(
-          `[Rank] Hard scene filter: only ${tagMatched.length} matched, keeping all ${candidates.length}`
+          `[Rank] Hard scene filter: no matches at all, candidates=0 (will trigger fullGeneration)`
         );
       }
     }
