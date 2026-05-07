@@ -1,5 +1,6 @@
 // ─────────────────────────────────────────────
 // 场景标签召回：用户选的餐食类型 → 标签命中
+// 匹配的菜谱给固定基础分，排序交给 taste/inventory
 // ─────────────────────────────────────────────
 
 import type { RecallChannel, RecallResult, UserContext, RequestFilters } from "../types.js";
@@ -20,8 +21,9 @@ export const sceneChannel: RecallChannel = {
         if (filters.combinedTags.includes(tag)) combinedHits++;
       }
       if (hits > 0 || combinedHits > 0) {
+        // 固定基础分 10，不按命中数翻倍，让 taste/inventory 决定排序
         result.set(r.id, {
-          score: hits * 10,
+          score: hits > 0 ? 10 : 0,
           meta: { sceneTagHits: hits, combinedTagHits: combinedHits },
         });
       }
