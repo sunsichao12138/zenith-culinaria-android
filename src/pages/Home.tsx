@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, RefreshCw, Clock, Plus, Check, Heart, AlertTriangle, Coffee, Compass, Star, Package } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { Sparkles, Clock, Plus, Check, Heart, AlertTriangle, Coffee, Compass, Star, Package } from "lucide-react";
+import { motion } from "motion/react";
 import { usePlan } from "../context/PlanContext";
 import { useFavorites } from "../context/FavoritesContext";
 import { cn } from "../lib/utils";
@@ -31,50 +31,15 @@ const SLOT_CONFIG = {
   },
 };
 
-const ALL_TAGS = [
-  { label: "元气早餐", emoji: "🌞", slots: ["morning"] },
-  { label: "低碳水", emoji: "🌿" },
-  { label: "宝宝餐", emoji: "👶" },
-  { label: "本周热点", emoji: "🔥" },
-  { label: "15分钟快手", emoji: "⏱️", slots: ["morning", "lunch"] },
-  { label: "拯救冰箱", emoji: "🧊" },
-  { label: "来点甜的", emoji: "🍰", slots: ["afternoon"] },
-  { label: "喝点东西", emoji: "🥤", slots: ["afternoon"] },
-  { label: "家常菜", emoji: "🍳", slots: ["lunch", "dinner"] },
-  { label: "西式料理", emoji: "🍝", slots: ["lunch", "dinner"] },
-  { label: "日韩风味", emoji: "🍣", slots: ["lunch", "dinner"] },
-  { label: "火辣过瘾", emoji: "🌶️", slots: ["lunch", "dinner", "night"] },
-  { label: "清爽解腻", emoji: "🥗", slots: ["afternoon"] },
-  { label: "高蛋白", emoji: "💪" },
-  { label: "深夜食堂", emoji: "🌙", slots: ["night"] },
-  { label: "减脂餐", emoji: "🥑", slots: ["morning", "lunch"] },
-  { label: "微醺调酒", emoji: "🍸", slots: ["night"] },
+// 快速筛选类型（与 Filters 页一致）
+const QUICK_FILTERS = [
+  { label: "正餐", emoji: "🍳" },
+  { label: "轻食", emoji: "🥗" },
+  { label: "早餐", emoji: "🥞" },
+  { label: "下午茶", emoji: "🍰" },
+  { label: "汤类", emoji: "🍜" },
+  { label: "饮品", emoji: "🧋" },
 ];
-
-// 根据时间获取当前时段
-const getTimeSlot = (): string => {
-  const h = new Date().getHours();
-  if (h < 4) return "night";
-  if (h < 11) return "morning";
-  if (h < 14) return "lunch";
-  if (h < 17) return "afternoon";
-  if (h < 21) return "dinner";
-  return "night";
-};
-
-// 生成时段感知的标签列表
-const getTimeTags = () => {
-  const slot = getTimeSlot();
-  const slotTags = ALL_TAGS.filter(t => t.slots?.includes(slot));
-  const generalTags = ALL_TAGS.filter(t => !t.slots);
-  const otherTags = ALL_TAGS.filter(t => t.slots && !t.slots.includes(slot));
-
-  return [
-    ...slotTags.sort(() => 0.5 - Math.random()),
-    ...generalTags.sort(() => 0.5 - Math.random()),
-    ...otherTags.sort(() => 0.5 - Math.random()),
-  ].slice(0, 6);
-};
 
 export default function Home() {
   const navigate = useNavigate();
@@ -128,17 +93,6 @@ export default function Home() {
     return () => document.removeEventListener("visibilitychange", handleVisible);
   }, []);
 
-  const [currentTags, setCurrentTags] = useState(() => getTimeTags());
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const refreshTags = () => {
-    setIsRefreshing(true);
-    setTimeout(() => {
-      setCurrentTags(getTimeTags());
-      setIsRefreshing(false);
-    }, 500);
-  };
-
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 4) return "夜深了，来点宵夜犒劳下自己？ ✨";
@@ -185,42 +139,22 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Quick Tags */}
+      {/* Quick Filter Tags — 与 Filters 页快速筛选一致 */}
       <section>
-        <div className="flex justify-between items-center mb-3">
-          <h4 className="font-bold text-base text-on-surface">你现在更想要</h4>
-          <button 
-            onClick={refreshTags}
-            disabled={isRefreshing}
-            className={cn(
-              "text-on-surface-variant hover:text-primary p-1.5 rounded-full transition-all active:scale-90",
-              isRefreshing && "animate-spin"
-            )}
-          >
-            <RefreshCw size={14} />
-          </button>
-        </div>
+        <h4 className="font-bold text-base text-on-surface mb-3">你现在更想要</h4>
         <div className="grid grid-cols-3 gap-2">
-          <AnimatePresence mode="popLayout">
-            {currentTags.map((tag) => (
-              <motion.button
-                key={tag.label}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                onClick={() => { localStorage.removeItem("ai_recommend_cache"); navigate(`/filters?quick=true&tag=${tag.label}`); }}
-                className={cn(
-                  "py-2 px-2 rounded-xl text-xs font-bold active:scale-95 transition-all flex items-center justify-center gap-1 truncate",
-                  (tag as any).special
-                    ? "bg-primary text-white shadow-md shadow-primary/25 border border-primary"
-                    : "bg-white text-on-surface border border-orange-100/80 editorial-shadow hover:bg-orange-50/50"
-                )}
-              >
-                <span className="text-sm">{tag.emoji}</span>
-                <span className="truncate">{tag.label}</span>
-              </motion.button>
-            ))}
-          </AnimatePresence>
+          {QUICK_FILTERS.map((tag, index) => (
+            <motion.button
+              key={tag.label}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1, transition: { delay: index * 0.05 } }}
+              onClick={() => { localStorage.removeItem("ai_recommend_cache"); navigate(`/filters?quick=true&tag=${tag.label}`); }}
+              className="py-2.5 px-2 rounded-xl text-xs font-bold active:scale-95 transition-all flex items-center justify-center gap-1.5 bg-white text-on-surface border border-orange-100/80 editorial-shadow hover:bg-orange-50/50 hover:border-primary/30"
+            >
+              <span className="text-base">{tag.emoji}</span>
+              <span>{tag.label}</span>
+            </motion.button>
+          ))}
         </div>
       </section>
 
