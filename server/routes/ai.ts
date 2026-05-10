@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { runRecommend } from "../recommend/pipeline.js";
 import { runHomePicks } from "../recommend/homePicks.js";
+import { runTagPicks } from "../recommend/tagPicks.js";
 
 const router = Router();
 
@@ -32,6 +33,18 @@ router.get("/home-picks", async (req: Request, res: Response) => {
     res.json(picks);
   } catch (err: any) {
     console.error("GET /api/ai/home-picks error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/ai/tag-picks - 首页标签推荐（纯规则引擎，无LLM，<500ms）
+router.get("/tag-picks", async (req: Request, res: Response) => {
+  try {
+    const tag = (req.query.tag as string) || "此刻推荐";
+    const picks = await runTagPicks({ userId: req.userId!, tag });
+    res.json(picks);
+  } catch (err: any) {
+    console.error("GET /api/ai/tag-picks error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
